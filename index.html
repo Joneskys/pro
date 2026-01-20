@@ -1,69 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
 <title>Professional Trading Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-:root{
-  --bg:#050b1a;
-  --panel:#0b1633;
-  --panel2:#0f1e44;
-  --text:#e8f0ff;
-  --green:#00e676;
-  --red:#ff5252;
-  --orange:#ff9800;
-  --border:#1b2f63;
+body{
+  margin:0;
+  background:radial-gradient(circle at top,#0b1c44,#020814);
+  color:#eaf2ff;
+  font-family:system-ui,Segoe UI;
 }
+.container{padding:20px;max-width:1400px;margin:auto}
+h1{margin:0 0 15px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-bottom:20px}
+.card{background:linear-gradient(145deg,#0c1f46,#040b1a);padding:20px;border-radius:20px;text-align:center;box-shadow:0 10px 40px #000}
+.card h3{margin:0;font-weight:600}
+.card p{font-size:26px;margin:10px 0 0;font-weight:bold}
 
-*{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto}
-body{margin:0;background:radial-gradient(circle,#081636,#020611);color:var(--text)}
-
-.container{padding:20px}
-h1{margin-bottom:20px}
-
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
-.card{background:linear-gradient(145deg,#0c1a38,#050c1e);padding:20px;border-radius:18px;text-align:center;box-shadow:0 10px 40px #000}
-.card p{font-size:22px;font-weight:bold}
-
-.controls{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
 input,select,button{
-  background:#0c1c3a;
+  background:#0b1f3f;
   color:white;
-  border:1px solid var(--border);
+  border:1px solid #1c3568;
   padding:10px 14px;
-  border-radius:10px;
+  border-radius:12px;
 }
-button:hover{cursor:pointer;background:#132a5e}
+button:hover{cursor:pointer;background:#132e61}
 
 .tablewrap{overflow-x:auto;border-radius:16px}
-table{width:100%;border-collapse:collapse;background:#071126}
-thead{background:#0d1c3f;position:sticky;top:0}
-th,td{padding:10px;text-align:center;font-size:13px;border-bottom:1px solid #122654}
+table{width:100%;border-collapse:collapse;background:#061225}
+thead{background:#0b2149;position:sticky;top:0}
+th,td{padding:10px;font-size:13px;text-align:center;border-bottom:1px solid #122b55}
 
-.buy{color:var(--green);font-weight:bold}
-.sell{color:var(--red);font-weight:bold}
+.buy{color:#00e676;font-weight:bold}
+.sell{color:#ff5252;font-weight:bold}
 .hold{color:#ddd;font-weight:bold}
 
 .badge{padding:4px 10px;border-radius:12px;font-size:12px}
-.up{background:#003d1f;color:var(--green)}
-.down{background:#3b0000;color:var(--red)}
-.side{background:#3a2500;color:var(--orange)}
+.up{background:#003d1f;color:#00e676}
+.down{background:#3b0000;color:#ff5252}
+.side{background:#3a2500;color:#ff9800}
 
-.modal{
- position:fixed;inset:0;background:#000a;display:none;
- align-items:center;justify-content:center;z-index:1000
+.toast{
+  position:fixed;right:20px;top:20px;
+  background:#071631;padding:15px 20px;border-radius:16px;
+  box-shadow:0 10px 40px #000;margin-top:10px;
 }
-.tradebox{
- background:#071631;padding:30px;border-radius:20px;width:380px;
- box-shadow:0 0 60px #000
-}
-.tradebox h2{text-align:center}
-.tradebox input{width:100%;margin:5px 0}
-.ratio{font-size:26px;font-weight:bold;margin-top:10px}
-.green{color:var(--green)}
-.red{color:var(--red)}
+.toast button{margin-left:15px}
 </style>
 </head>
 
@@ -72,14 +57,14 @@ th,td{padding:10px;text-align:center;font-size:13px;border-bottom:1px solid #122
 <h1>📊 Professional Trading Dashboard</h1>
 
 <div class="cards">
-  <div class="card"><h3>Gold 24K 10g</h3><p id="gold">₹--</p></div>
-  <div class="card"><h3>Silver 1kg</h3><p id="silver">₹--</p></div>
+  <div class="card"><h3>Gold</h3><p id="gold">₹--</p></div>
+  <div class="card"><h3>Silver</h3><p id="silver">₹--</p></div>
   <div class="card"><h3>Copper</h3><p id="copper">₹--</p></div>
-  <div class="card"><h3>USD → INR</h3><p id="usd">₹--</p></div>
+  <div class="card"><h3>USDINR</h3><p id="usd">₹--</p></div>
 </div>
 
 <div class="controls">
-  <input type="date">
+  <input type="date" id="date">
   <button onclick="loadAll()">Submit</button>
   <input placeholder="Search stock" oninput="search=this.value.toUpperCase();render()">
   <button onclick="filter='BUY';render()">Only Buy</button>
@@ -110,25 +95,12 @@ th,td{padding:10px;text-align:center;font-size:13px;border-bottom:1px solid #122
 </div>
 </div>
 
-<!-- Trade Modal -->
-<div class="modal" id="tradeModal">
-<div class="tradebox">
-<h2 id="tstock"></h2>
-<label>Buy</label><input id="entry">
-<label>SL</label><input id="sl">
-<label>Target</label><input id="tgt">
-<label>Quantity</label><input id="qty" oninput="syncBudget()">
-<label>Budget</label><input id="budget" oninput="syncQty()">
-<button onclick="calcTrade()">Calculate</button>
-<div id="result"></div>
-<button onclick="closeTrade()">Close</button>
-</div>
-</div>
+<div id="toasts"></div>
 
 <script>
 const worker="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
 let stocks=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
-let data={},filter="ALL",sort="",search="";
+let data={},filter="ALL",sort="",search="",lastSignal={};
 
 const r2=x=>Math.round(x*20)/20;
 
@@ -138,12 +110,17 @@ async function loadStock(s){
   const j=await r.json();
   const p=j.price||Math.random()*300+50;
   const rsi=Math.random()*100;
-  const vol=Math.random()*300;
+  const vol=Math.random()*400;
   const sig=rsi<35?"BUY":rsi>65?"SELL":"HOLD";
   const e=r2(p);
   const sl=r2(sig=="BUY"?e*0.985:e*1.015);
   const tgt=r2(sig=="BUY"?e*1.03:e*0.97);
   data[s]={p,rsi,vol,sig,e,sl,tgt};
+
+  if(lastSignal[s] && lastSignal[s]!=sig && (sig=="BUY"||sig=="SELL")){
+    showToast(`${s}: ${sig} Signal`,sig);
+  }
+  lastSignal[s]=sig;
  }catch{}
 }
 
@@ -155,9 +132,9 @@ function render(){
  if(sort=="rsi") arr.sort((a,b)=>b[1].rsi-a[1].rsi);
  if(sort=="vol") arr.sort((a,b)=>b[1].vol-a[1].vol);
 
- document.getElementById("tbody").innerHTML=arr.map(([s,d])=>`
+ tbody.innerHTML=arr.map(([s,d])=>`
 <tr>
-<td class="${d.sig.toLowerCase()}">${s}</td>
+<td class="${d.sig.toLowerCase()}"><b>${s}</b></td>
 <td>${d.p.toFixed(2)}</td>
 <td>${d.rsi.toFixed(1)}</td>
 <td>${Math.floor(d.vol)}</td>
@@ -168,34 +145,7 @@ function render(){
 }
 
 function openTrade(s,e,sl,t){
- tradeModal.style.display="flex";
- tstock.innerText=s;
- entry.value=e;this.sl.value=sl;tgt.value=t;
- qty.value="";budget.value="";result.innerHTML="";
-}
-
-function closeTrade(){tradeModal.style.display="none"}
-
-function syncQty(){
- let e=+entry.value;
- if(!budget.value||!e)return;
- qty.value=Math.floor(budget.value/e);
-}
-function syncBudget(){
- let e=+entry.value,q=+qty.value;
- if(!q||!e)return;
- budget.value=(q*e).toFixed(0);
-}
-
-function calcTrade(){
- let e=+entry.value,slv=+sl.value,tv=+tgt.value,q=+qty.value;
- let loss=(slv-e)*q;
- let profit=(tv-e)*q;
- let rr=(profit/Math.abs(loss)).toFixed(2);
- result.innerHTML=`
- <div class="red">SL P/L: ₹${loss.toFixed(2)}</div>
- <div class="green">Target P/L: ₹${profit.toFixed(2)}</div>
- <div class="ratio ${profit>Math.abs(loss)?'green':'red'}">R:R ${rr}</div>`;
+ window.open(`trade.html?stock=${s}&entry=${e}&sl=${sl}&target=${t}`,'_blank');
 }
 
 function addStock(){
@@ -203,13 +153,22 @@ function addStock(){
  if(v&&!stocks.includes(v)){stocks.push(v);loadStock(v).then(render);}
 }
 
+function showToast(text,type){
+ const div=document.createElement("div");
+ div.className="toast";
+ div.style.borderLeft="6px solid "+(type=="BUY"?"#00e676":"#ff5252");
+ div.innerHTML=`${text} <button onclick="this.parentElement.remove()">Close</button>`;
+ toasts.appendChild(div);
+ setTimeout(()=>div.remove(),8000);
+}
+
 async function loadMCX(){
  const map={gold:"GOLD",silver:"SILVER",copper:"COPPER",usd:"USDINR"};
  for(let id in map){
   try{
-   let r=await fetch(worker+"/mcx?symbol="+map[id]);
-   let j=await r.json();
-   let p=j?.chart?.result?.[0]?.meta?.regularMarketPrice;
+   const r=await fetch(worker+"/mcx?symbol="+map[id]);
+   const j=await r.json();
+   const p=j?.chart?.result?.[0]?.meta?.regularMarketPrice;
    document.getElementById(id).innerText=p?`₹${p.toFixed(2)}`:"₹--";
   }catch{}
  }
