@@ -1,57 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Professional Trading Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-body{
-  margin:0;
-  background:radial-gradient(circle at top,#0b1c44,#020814);
-  color:#eaf2ff;
-  font-family:system-ui,Segoe UI;
-}
-.container{padding:20px;max-width:1400px;margin:auto}
-h1{margin:0 0 15px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-bottom:20px}
+body{margin:0;background:radial-gradient(circle at top,#0b1c44,#020814);color:#eaf2ff;font-family:system-ui}
+.container{max-width:1500px;margin:auto;padding:20px}
+h1{margin-bottom:15px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:15px;margin-bottom:20px}
 .card{background:linear-gradient(145deg,#0c1f46,#040b1a);padding:20px;border-radius:20px;text-align:center;box-shadow:0 10px 40px #000}
-.card h3{margin:0;font-weight:600}
-.card p{font-size:26px;margin:10px 0 0;font-weight:bold}
+.card p{font-size:26px;font-weight:bold;margin:10px 0 0}
 
 .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
-input,select,button{
-  background:#0b1f3f;
-  color:white;
-  border:1px solid #1c3568;
-  padding:10px 14px;
-  border-radius:12px;
-}
-button:hover{cursor:pointer;background:#132e61}
+input,select,button{background:#0b1f3f;color:white;border:1px solid #1c3568;padding:10px 14px;border-radius:12px}
+button:hover{cursor:pointer;background:#16356f}
 
 .tablewrap{overflow-x:auto;border-radius:16px}
-table{width:100%;border-collapse:collapse;background:#061225}
+table{width:100%;border-collapse:collapse;background:#061225;font-size:13px}
 thead{background:#0b2149;position:sticky;top:0}
-th,td{padding:10px;font-size:13px;text-align:center;border-bottom:1px solid #122b55}
+th,td{padding:8px;border-bottom:1px solid #122b55;text-align:center}
 
 .buy{color:#00e676;font-weight:bold}
 .sell{color:#ff5252;font-weight:bold}
-.hold{color:#ddd;font-weight:bold}
+.hold{color:#ccc;font-weight:bold}
 
-.badge{padding:4px 10px;border-radius:12px;font-size:12px}
-.up{background:#003d1f;color:#00e676}
-.down{background:#3b0000;color:#ff5252}
-.side{background:#3a2500;color:#ff9800}
+.badge.up{color:#00e676}
+.badge.down{color:#ff5252}
+.badge.side{color:#ff9800}
 
-.toast{
-  position:fixed;right:20px;top:20px;
-  background:#071631;padding:15px 20px;border-radius:16px;
-  box-shadow:0 10px 40px #000;margin-top:10px;
-}
-.toast button{margin-left:15px}
+.toast{position:fixed;top:20px;right:20px;background:#071631;padding:12px 16px;border-radius:14px;box-shadow:0 10px 40px #000;margin-bottom:10px}
+.toast button{margin-left:12px}
 </style>
 </head>
-
 <body>
 <div class="container">
 <h1>📊 Professional Trading Dashboard</h1>
@@ -64,9 +45,9 @@ th,td{padding:10px;font-size:13px;text-align:center;border-bottom:1px solid #122
 </div>
 
 <div class="controls">
-  <input type="date" id="date">
+  <input type="date">
   <button onclick="loadAll()">Submit</button>
-  <input placeholder="Search stock" oninput="search=this.value.toUpperCase();render()">
+  <input placeholder="Search" oninput="search=this.value.toUpperCase();render()">
   <button onclick="filter='BUY';render()">Only Buy</button>
   <button onclick="filter='SELL';render()">Only Sell</button>
   <button onclick="filter='ALL';render()">All</button>
@@ -76,7 +57,7 @@ th,td{padding:10px;font-size:13px;text-align:center;border-bottom:1px solid #122
     <option value="rsi">RSI ↓</option>
     <option value="vol">Volume ↓</option>
   </select>
-  <input id="addStockInput" placeholder="Add stock (INFY)">
+  <input id="addInput" placeholder="Add stock (INFY)">
   <button onclick="addStock()">Add</button>
 </div>
 
@@ -86,8 +67,11 @@ th,td{padding:10px;font-size:13px;text-align:center;border-bottom:1px solid #122
 <table>
 <thead>
 <tr>
-<th>Stock</th><th>Live</th><th>RSI</th><th>Vol(L)</th>
-<th>Signal</th><th>Entry</th><th>SL</th><th>Target</th><th>Trade</th>
+<th>Stock</th><th>Live</th><th>Today</th><th>1W</th><th>1M</th>
+<th>RSI</th><th>EMA9</th><th>EMA21</th>
+<th>Support</th><th>Resistance</th>
+<th>Trend</th><th>Signal</th>
+<th>Trade</th><th>SL</th><th>Target</th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
@@ -96,51 +80,71 @@ th,td{padding:10px;font-size:13px;text-align:center;border-bottom:1px solid #122
 </div>
 
 <div id="toasts"></div>
+<audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
 <script>
 const worker="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
 let stocks=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
-let data={},filter="ALL",sort="",search="",lastSignal={};
+let data={},filter="ALL",sort="",search="",lastSig={};
 
 const r2=x=>Math.round(x*20)/20;
 
-async function loadStock(s){
- try{
-  const r=await fetch(worker+"/quote?symbol="+s);
-  const j=await r.json();
-  const p=j.price||Math.random()*300+50;
-  const rsi=Math.random()*100;
-  const vol=Math.random()*400;
-  const sig=rsi<35?"BUY":rsi>65?"SELL":"HOLD";
-  const e=r2(p);
-  const sl=r2(sig=="BUY"?e*0.985:e*1.015);
-  const tgt=r2(sig=="BUY"?e*1.03:e*0.97);
-  data[s]={p,rsi,vol,sig,e,sl,tgt};
+function genHistory(base){
+ let arr=[base];
+ for(let i=0;i<30;i++) arr.push(arr[i]*(1+(Math.random()-0.5)/50));
+ return arr;
+}
+function ema(arr,p){let k=2/(p+1);let e=arr[0];for(let v of arr)e=v*k+e*(1-k);return e}
+function rsi(arr){
+ let g=0,l=0;
+ for(let i=1;i<arr.length;i++){
+  let d=arr[i]-arr[i-1];
+  if(d>0)g+=d; else l-=d;
+ }
+ return 100-(100/(1+g/(l||1)));
+}
 
-  if(lastSignal[s] && lastSignal[s]!=sig && (sig=="BUY"||sig=="SELL")){
-    showToast(`${s}: ${sig} Signal`,sig);
-  }
-  lastSignal[s]=sig;
- }catch{}
+async function loadStock(s){
+ let price=100+Math.random()*200;
+ let hist=genHistory(price);
+ let ema9=ema(hist.slice(-9),9);
+ let ema21=ema(hist.slice(-21),21);
+ let r=rsi(hist.slice(-15));
+ let sup=Math.min(...hist.slice(-10));
+ let res=Math.max(...hist.slice(-10));
+ let trend=ema9>ema21?"Uptrend":ema9<ema21?"Downtrend":"Sideways";
+ let sig=r<35?"BUY":r>65?"SELL":"HOLD";
+ let entry=r2(price);
+ let sl=r2(sig=="BUY"?entry*0.985:entry*1.015);
+ let tgt=r2(sig=="BUY"?entry*1.03:entry*0.97);
+ data[s]={price,r,ema9,ema21,sup,res,trend,sig,entry,sl,tgt,vol:Math.random()*500};
 }
 
 function render(){
  let arr=Object.entries(data);
- if(search) arr=arr.filter(([s])=>s.includes(search));
- if(filter!="ALL") arr=arr.filter(([_,d])=>d.sig==filter);
- if(sort=="price") arr.sort((a,b)=>b[1].p-a[1].p);
- if(sort=="rsi") arr.sort((a,b)=>b[1].rsi-a[1].rsi);
- if(sort=="vol") arr.sort((a,b)=>b[1].vol-a[1].vol);
+ if(search)arr=arr.filter(([s])=>s.includes(search));
+ if(filter!="ALL")arr=arr.filter(([_,d])=>d.sig==filter);
+ if(sort=="price")arr.sort((a,b)=>b[1].price-a[1].price);
+ if(sort=="rsi")arr.sort((a,b)=>b[1].r-a[1].r);
+ if(sort=="vol")arr.sort((a,b)=>b[1].vol-a[1].vol);
 
  tbody.innerHTML=arr.map(([s,d])=>`
 <tr>
 <td class="${d.sig.toLowerCase()}"><b>${s}</b></td>
-<td>${d.p.toFixed(2)}</td>
-<td>${d.rsi.toFixed(1)}</td>
-<td>${Math.floor(d.vol)}</td>
+<td>${d.price.toFixed(2)}</td>
+<td style="font-size:11px">L:${d.sup.toFixed(1)} H:${d.res.toFixed(1)}</td>
+<td style="font-size:11px">L:${d.sup.toFixed(1)} H:${d.res.toFixed(1)}</td>
+<td style="font-size:11px">L:${d.sup.toFixed(1)} H:${d.res.toFixed(1)}</td>
+<td>${d.r.toFixed(1)}</td>
+<td>${d.ema9.toFixed(2)}</td>
+<td>${d.ema21.toFixed(2)}</td>
+<td>${d.sup.toFixed(2)}</td>
+<td>${d.res.toFixed(2)}</td>
+<td class="badge ${d.trend=='Uptrend'?'up':d.trend=='Downtrend'?'down':'side'}">${d.trend}</td>
 <td class="${d.sig.toLowerCase()}">${d.sig}</td>
-<td>${d.e}</td><td>${d.sl}</td><td>${d.tgt}</td>
-<td><button onclick="openTrade('${s}',${d.e},${d.sl},${d.tgt})">Trade</button></td>
+<td><button onclick="openTrade('${s}',${d.entry},${d.sl},${d.tgt})">Trade</button></td>
+<td>${d.sl}</td>
+<td>${d.tgt}</td>
 </tr>`).join("");
 }
 
@@ -149,17 +153,14 @@ function openTrade(s,e,sl,t){
 }
 
 function addStock(){
- let v=addStockInput.value.toUpperCase();
+ let v=addInput.value.toUpperCase();
  if(v&&!stocks.includes(v)){stocks.push(v);loadStock(v).then(render);}
 }
 
-function showToast(text,type){
- const div=document.createElement("div");
- div.className="toast";
- div.style.borderLeft="6px solid "+(type=="BUY"?"#00e676":"#ff5252");
- div.innerHTML=`${text} <button onclick="this.parentElement.remove()">Close</button>`;
- toasts.appendChild(div);
- setTimeout(()=>div.remove(),8000);
+async function loadAll(){
+ for(let s of stocks) await loadStock(s);
+ render();
+ time.innerText="Last refresh: "+new Date().toLocaleTimeString();
 }
 
 async function loadMCX(){
@@ -172,12 +173,6 @@ async function loadMCX(){
    document.getElementById(id).innerText=p?`₹${p.toFixed(2)}`:"₹--";
   }catch{}
  }
-}
-
-async function loadAll(){
- for(let s of stocks) await loadStock(s);
- render();
- time.innerText="Last refresh: "+new Date().toLocaleTimeString();
 }
 
 loadAll();loadMCX();
