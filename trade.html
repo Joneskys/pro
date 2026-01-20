@@ -1,44 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Trade</title>
+<meta charset="UTF-8">
+<title>Trade Calculator</title>
 <style>
-body{background:#020814;color:white;font-family:system-ui}
-.card{max-width:500px;margin:50px auto;background:#081a36;padding:20px;border-radius:20px}
-input,button{width:100%;margin:6px 0;padding:8px;border-radius:10px;background:#071f40;color:white;border:1px solid #1d3f70}
-.profit{color:#00ff9c;font-size:20px}
-.loss{color:#ff4d4d;font-size:20px}
+body{background:#000814;color:white;font-family:system-ui}
+.card{max-width:500px;margin:40px auto;background:#081a35;padding:20px;border-radius:20px}
+input,button{width:100%;padding:10px;margin:6px 0;background:#0b254a;border:1px solid #123;color:white;border-radius:10px}
+.profit{color:#00ff9c;font-size:22px}
+.loss{color:#ff5252;font-size:22px}
 </style>
 </head>
 <body>
 <div class="card">
 <h2 id="title"></h2>
-Entry <input id="entry">
-SL <input id="sl">
-Target <input id="target">
-Quantity <input id="qty">
-Budget ₹ <input id="budget">
+<input id="entry">
+<input id="sl">
+<input id="target">
+<input id="qty" placeholder="Quantity">
+<input id="budget" placeholder="Budget">
 <button onclick="calc()">Calculate</button>
 <div id="out"></div>
 </div>
 
 <script>
 const p=new URLSearchParams(location.search);
-entry.value=p.get("entry");sl.value=p.get("sl");target.value=p.get("target");
+entry.value=p.get("entry");
+sl.value=p.get("sl");
+target.value=p.get("target");
 title.innerText=p.get("stock");
+
+function round(v){return (Math.round(v*20)/20).toFixed(2)}
 
 function calc(){
   let e=+entry.value,s=+sl.value,t=+target.value,q=+qty.value,b=+budget.value;
   if(b&&!q)q=Math.floor((b*5)/e);
   if(q&&!b)b=(q*e)/5;
-  qty.value=q;budget.value=b.toFixed(0);
+  qty.value=q;budget.value=round(b);
 
-  const grossSL=(s-e)*q;
-  const grossT=(t-e)*q;
+  let pnlSL=(s-e)*q;
+  let pnlT=(t-e)*q;
 
   out.innerHTML=`
-    <div class="loss">SL P/L: ₹${grossSL.toFixed(2)}</div>
-    <div class="profit">Target P/L: ₹${grossT.toFixed(2)}</div>`;
+  <div class="loss">SL P/L: ₹${round(pnlSL)}</div>
+  <div class="profit">Target P/L: ₹${round(pnlT)}</div>
+  <div>Risk:Reward = ${(Math.abs(pnlSL)/Math.abs(pnlT)).toFixed(2)}</div>`;
 }
 </script>
 </body>
