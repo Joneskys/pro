@@ -23,7 +23,7 @@ button{cursor:pointer}
 .small{font-size:11px;color:var(--muted)}
 
 .table-wrap{overflow:auto;max-height:75vh;border-radius:14px;border:1px solid var(--border)}
-table{width:100%;border-collapse:collapse;font-size:12px;min-width:1200px}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1300px}
 th,td{border:1px solid var(--border);padding:6px 8px;text-align:center;white-space:nowrap}
 th{position:sticky;top:0;background:#020617}
 tr:nth-child(even){background:#0f172a}
@@ -34,9 +34,7 @@ tr:nth-child(even){background:#0f172a}
 .bold{font-weight:800}
 
 .popup{position:fixed;bottom:20px;right:20px;background:#020617;border:1px solid var(--border);border-radius:16px;padding:12px;display:none;z-index:50}
-
 .tradeBtn{padding:4px 10px;border-radius:999px;background:#111827;border:1px solid var(--border)}
-
 footer{padding:10px;text-align:center;color:var(--muted)}
 </style>
 </head>
@@ -97,6 +95,7 @@ footer{padding:10px;text-align:center;color:var(--muted)}
 <footer>All data via Worker or mock fallback • Educational use</footer>
 
 <script>
+// ================= CONFIG =================
 const WORKER = "https://red-tooth-e4f7.lovelyideas-in.workers.dev";
 const STOCK_API = s => `${WORKER}?symbol=${s}`;
 const MCX_API = `${WORKER}/mcx`;
@@ -105,6 +104,10 @@ let STOCKS = ["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","
 
 let DB = {}, filter="all", muted=false, lastSignals={};
 
+// ================= HELPERS =================
+const round05 = v => (Math.round(v*20)/20).toFixed(2); // rounds to .00 or .05
+
+// ================= MOCK DATA =================
 function mock(){
   let arr=[],p=100+Math.random()*300;
   for(let i=60;i>=0;i--){
@@ -116,6 +119,7 @@ function mock(){
   return arr;
 }
 
+// ================= PARSE WORKER =================
 function parseWorker(j){
   try{
     let r=j.chart.result[0],q=r.indicators.quote[0];
@@ -131,25 +135,30 @@ async function loadStock(s){
   catch{DB[s]=mock();}
 }
 
+// ================= MCX PANEL =================
 async function loadMCX(){
   try{
     const d = await (await fetch(MCX_API)).json();
-    gold.textContent = d.gold_10g ? `₹${d.gold_10g}` : '₹--';
-    silver.textContent = d.silver_1kg ? `₹${d.silver_1kg}` : '₹--';
-    copper.textContent = d.copper ? `₹${d.copper}` : '₹--';
-    usd.textContent = d.usd_inr ? `₹${d.usd_inr}` : '₹--';
+    // flexible mapping in case worker keys differ
+    gold.textContent   = `₹${d.gold_10g || d.gold || '--'}`;
+    silver.textContent = `₹${d.silver_1kg || d.silver || '--'}`;
+    copper.textContent = `₹${d.copper || '--'}`;
+    usd.textContent    = `₹${d.usd_inr || d.usd || '--'}`;
   } catch {}
 }
 
+// ================= ADD STOCK =================
 function addStock(){
   let s=newStock.value.trim().toUpperCase();
   if(s && !STOCKS.includes(s)){STOCKS.push(s);loadStock(s);}newStock.value="";
 }
 
+// ================= INDICATORS =================
 const EMA=(a,p)=>{let k=2/(p+1),e=a[0];a.forEach(v=>e=v*k+e*(1-k));return e;}
 const RSI=a=>{let g=0,l=0;for(let i=1;i<=14;i++){let d=a[i]-a[i-1];d>0?g+=d:l-=d;}let rs=g/(l||1);return 100-(100/(1+rs));}
 const signal=(e9,e21,r)=>e9>e21&&r>60?"BUY":e9<e21&&r<40?"SELL":"HOLD";
 
+// ================= ALERT =================
 function alertSignal(s,sig){
   if(sig==="HOLD"||lastSignals[s]===sig)return;
   lastSignals[s]=sig;
@@ -161,6 +170,7 @@ function alertSignal(s,sig){
   }
 }
 
+// ================= RENDER =================
 function render(){
   time.textContent=new Date().toLocaleTimeString();
   let q=search.value.toLowerCase();
@@ -199,7 +209,7 @@ function render(){
     let rowColor=r.sig==='BUY'?'green':r.sig==='SELL'?'red':'';
     html+=`<tr>
       <td class="bold ${rowColor}">${r.s}</td>
-      <td>${r.entry.toFixed(2)}</td>
+      <td>${round05(r.entry)}</td>
       <td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)} V:${r.volLakh}L</td>
       <td class="small">L:${Math.min(...r.w.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.w.map(x=>x.high)).toFixed(1)}</td>
       <td class="small">L:${Math.min(...r.m.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.m.map(x=>x.high)).toFixed(1)}</td>
@@ -210,31 +220,51 @@ function render(){
       <td>${r.res.toFixed(2)}</td>
       <td>${r.e9>r.e21?'Uptrend':'Downtrend'}</td>
       <td class="${r.sig==='BUY'?'green':r.sig==='SELL'?'red':'orange'}">${r.sig}</td>
-      <td>${r.entry.toFixed(2)}</td>
-      <td>${r.sl.toFixed(2)}</td>
-      <td>${r.tgt.toFixed(2)}</td>
+      <td>${round05(r.entry)}</td>
+      <td>${round05(r.sl)}</td>
+      <td>${round05(r.tgt)}</td>
       <td><button class="tradeBtn" onclick="openTrade('${r.s}',${r.entry},${r.sl},${r.tgt})">Trade</button></td>
     </tr>`;
   }
   tbody.innerHTML=html;
 }
 
+// ================= TRADE WINDOW =================
 function openTrade(stock,entry,sl,target){
-  const html=`<html><head><title>Trade ${stock}</title><style>body{background:#0b1220;color:white;font-family:sans-serif;padding:20px}input{padding:8px}</style></head>
-  <body><h2>${stock}</h2>
-  Entry: ₹${entry.toFixed(2)}<br>SL: ₹${sl.toFixed(2)}<br>Target: ₹${target.toFixed(2)}<br><br>
-  Qty: <input id='qty' oninput='calc()'><br>
+  const html=`<html><head><title>Trade ${stock}</title><style>
+  body{background:#0b1220;color:white;font-family:sans-serif;padding:20px}
+  input{padding:8px;margin:4px}
+  .box{border:1px solid #1f2937;padding:12px;border-radius:12px;margin-top:10px}
+  </style></head>
+  <body>
+  <h2>${stock}</h2>
+  <div class='box'>Entry ₹${round05(entry)} | SL ₹${round05(sl)} | Target ₹${round05(target)}</div>
+  Qty: <input id='qty' oninput='calc()'>
   Budget: <input id='budget' oninput='calc2()'><br>
-  <div id='out'></div>
+  <div id='charges'></div>
   <script>
-  const entry=${entry};
-  function calc(){let q=qty.value;budget.value=(q*entry).toFixed(2)}
-  function calc2(){let b=budget.value;qty.value=Math.floor(b/entry)}
+  const entry=${entry},sl=${sl},target=${target};
+  function brokerage(v){return Math.min(20,v*0.0005)}
+  function calc(){let q=+qty.value||0; budget.value=(q*entry).toFixed(2); compute(q)}
+  function calc2(){let b=+budget.value||0; qty.value=Math.floor(b/entry); compute(qty.value)}
+  function compute(q){
+    let turnover=q*(entry+entry);
+    let bro=brokerage(turnover);
+    let stt=q*entry*0.00025;
+    let exch=turnover*0.0000297;
+    let sebi=turnover*0.000001;
+    let gst=(bro+exch+sebi)*0.18;
+    let total=bro+stt+exch+sebi+gst;
+    let pnlSL=(sl-entry)*q-total;
+    let pnlT=(target-entry)*q-total;
+    charges.innerHTML=`Charges: ₹${total.toFixed(2)}<br>SL P/L: ₹${pnlSL.toFixed(2)}<br>Target P/L: ₹${pnlT.toFixed(2)}`;
+  }
   </script>
   </body></html>`;
   let w=window.open();w.document.write(html);w.document.close();
 }
 
+// ================= INIT =================
 async function init(){
   for(let s of STOCKS) await loadStock(s);
   render(); loadMCX();
