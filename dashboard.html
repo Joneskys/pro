@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pro Stock Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;font-family:system-ui;background:#0f172a;color:#e5e7eb}
+header{position:sticky;top:0;background:#020617;padding:10px;border-bottom:1px solid #1f2937;z-index:9}
+.topbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;padding:10px}
+.card{background:#020617;border:1px solid #1f2937;border-radius:12px;padding:10px;text-align:center}
+.big{font-size:20px;font-weight:bold}
+.controls{display:flex;gap:6px;flex-wrap:wrap}
+input,button{background:#0f172a;color:white;border:1px solid #1f2937;padding:6px;border-radius:8px}
+button:hover{background:#1f2937}
+.container{padding:10px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid #1f2937;padding:6px;text-align:center}
+th{position:sticky;top:140px;background:#020617;cursor:pointer}
+tr:nth-child(even){background:#0b1220}
+.green{color:#22c55e;font-weight:bold}
+.red{color:#ef4444;font-weight:bold}
+.orange{color:#f59e0b;font-weight:bold}
+.small{font-size:10px;opacity:.7}
+.popup{position:fixed;bottom:20px;right:20px;background:#020617;border:1px solid #1f2937;padding:12px;border-radius:12px;display:none}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="card">Gold<div id="gold" class="big">₹--</div></div>
+  <div class="card">Silver<div id="silver" class="big">₹--</div></div>
+  <div class="card">Copper<div id="copper" class="big">₹--</div></div>
+  <div class="card">USD<div id="usd" class="big">₹--</div></div>
+</div>
+
+<header>
+  <div class="controls">
+    <input type="date" id="date">
+    <button onclick="render()">Submit</button>
+    <input id="search" placeholder="Search" oninput="render()">
+    <button onclick="filter='buy';render()">Only Buy</button>
+    <button onclick="filter='sell';render()">Only Sell</button>
+    <button onclick="filter='all';render()">All</button>
+    <input id="newStock" placeholder="Add Stock (e.g. INFY)">
+    <button onclick="addStock()">Add</button>
+    <button onclick="muted=!muted">Mute</button>
+  </div>
+  <div class="small">Last refresh: <span id="time"></span></div>
+</header>
+
+<div class="container">
+<table id="table">
+<thead>
+<tr>
+<th>Stock</th><th>Live</th><th>Today</th><th>1W</th><th>1M</th>
+<th>RSI</th><th>EMA9</th><th>EMA21</th>
+<th>Support</th><th>Resistance</th>
+<th>Trend</th><th>Signal</th>
+<th>Entry</th><th>SL</th><th>Target</th>
+<th>Trade</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+<div id="popup" class="popup">
+  <div id="popupText"></div>
+  <button onclick="popup.style.display='none'">Close</button>
+</div>
+
+<script>
+const WORKER="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
+const STOCK_API=s=>WORKER+"?symbol="+s;
+const MCX_API=WORKER+"/mcx";
+
+let STOCKS=[
+"NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA",
+"BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH",
+"HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"
+];
+
+let DB={},filter="all",muted=false,lastSignals={};
+
+function addStock(){
+  let s=newStock.value.trim().toUpperCase();
+  if(s && !STOCKS.includes(s)){
+    STOCKS.push(s);
+    loadStock(s);
+  }
+  newStock.value="";
+}
+
+async function loadStock(s){
+  try{
+    let j=await (await fetch(STOCK_API(s))).json();
+    DB[s]=parseWorker(j);
+  }catch{DB[s]=mock();}
+  render();
+}
+
+function parseWorker(j){
+  try{
+    let r=j.chart.result[0],q=r.indicators.quote[0];
+    return r.timestamp.map((t,i)=>({
+      date:new Date(t*1000).toISOString().slice(0,10),
+      open:q.open[i],high:q.high[i],low:q.low[i],close:q.close[i],volume:q.volume?.[i]||0
+    })).filter(x=>x.close);
+  }catch{return mock();}
+}
+
+function mock(){
+  let arr=[],p=100+Math.random()*100;
+  for(let i=60;i>=0;i--){
+    let d=new Date();d.setDate(d.getDate()-i);
+    let o=p,c=o+(Math.random()-0.5)*5;
+    arr.push({date:d.toISOString().slice(0,10),open:o,high:o+2,low:o-2,close:c,volume:Math.random()*5000000});
+    p=c;
+  }
+  return arr;
+}
+
+const EMA=(a,p)=>{let k=2/(p+1),e=a[0];a.forEach(v=>e=v*k+e*(1-k));return e;}
+const RSI=(a)=>{let g=0,l=0;for(let i=1;i<=14;i++){let d=a[i]-a[i-1];d>0?g+=d:l-=d;}let rs=g/(l||1);return 100-(100/(1+rs));}
+
+function signal(e9,e21,rsi){if(e9>e21&&rsi>60)return"BUY";if(e9<e21&&rsi<40)return"SELL";return"HOLD";}
+
+function alertSignal(s,sig){
+  if(sig==="HOLD"||lastSignals[s]===sig)return;
+  lastSignals[s]=sig;
+  popupText.innerHTML=`<b class="${sig==="BUY"?"green":"red"}">${s} ${sig}</b>`;
+  popup.style.display="block";
+  if(!muted){
+    let a=new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+    a.loop=true;a.play();setTimeout(()=>{a.pause();a.currentTime=0},3000);
+  }
+}
+
+async function loadMCX(){
+  try{
+    let d=await (await fetch(MCX_API)).json();
+    gold.textContent="₹"+(d.gold_10g||"--");
+    silver.textContent="₹"+(d.silver_1kg||"--");
+    copper.textContent="₹"+(d.copper||"--");
+    usd.textContent="₹"+(d.usd_inr||"--");
+  }catch{}
+}
+
+function render(){
+  time.textContent=new Date().toLocaleTimeString();
+  let dval=date.value;
+  let q=search.value.toLowerCase();
+  let html="";
+  for(let s of STOCKS){
+    if(q && !s.toLowerCase().includes(q))continue;
+    let d=DB[s];if(!d||d.length<30)continue;
+    let idx=d.findIndex(x=>x.date===dval);if(idx<30)idx=d.length-1;
+    let arr=d.slice(0,idx+1),t=arr.at(-1),cl=arr.map(x=>x.close);
+    let e9=EMA(cl.slice(-9),9),e21=EMA(cl.slice(-21),21),rsi=RSI(cl.slice(-15));
+    let w=arr.slice(-6),m=arr.slice(-21);
+    let sup=Math.min(...m.map(x=>x.low)),res=Math.max(...m.map(x=>x.high));
+    let sig=signal(e9,e21,rsi);
+    if(filter==="buy"&&sig!=="BUY")continue;
+    if(filter==="sell"&&sig!=="SELL")continue;
+    alertSignal(s,sig);
+    let color=sig==="BUY"?"green":sig==="SELL"?"red":"";
+    let entry=t.close,sl=sig==="BUY"?entry*0.98:entry*1.02,tgt=sig==="BUY"?entry*1.03:entry*0.97;
+    html+=`
+    <tr>
+      <td class="${color}"><b>${s}</b></td>
+      <td>${entry.toFixed(2)}</td>
+      <td class="small">L:${t.low.toFixed(1)} H:${t.high.toFixed(1)}</td>
+      <td class="small">L:${Math.min(...w.map(x=>x.low)).toFixed(1)} H:${Math.max(...w.map(x=>x.high)).toFixed(1)}</td>
+      <td class="small">L:${Math.min(...m.map(x=>x.low)).toFixed(1)} H:${Math.max(...m.map(x=>x.high)).toFixed(1)}</td>
+      <td>${rsi.toFixed(1)}</td>
+      <td>${e9.toFixed(2)}</td>
+      <td>${e21.toFixed(2)}</td>
+      <td>${sup.toFixed(2)}</td>
+      <td>${res.toFixed(2)}</td>
+      <td>${e9>e21?"Uptrend":"Downtrend"}</td>
+      <td class="${sig==="BUY"?"green":sig==="SELL"?"red":"orange"}">${sig}</td>
+      <td>${entry.toFixed(2)}</td>
+      <td>${sl.toFixed(2)}</td>
+      <td>${tgt.toFixed(2)}</td>
+      <td><button onclick="openTrade('${s}',${entry},${sl},${tgt})">Trade</button></td>
+    </tr>`;
+  }
+  tbody.innerHTML=html;
+}
+
+function openTrade(s,e,sl,t){
+  window.open(`trade.html?stock=${s}&entry=${e}&sl=${sl}&target=${t}`,"_blank");
+}
+
+async function init(){
+  for(let s of STOCKS)loadStock(s);
+  loadMCX();
+  setInterval(()=>{render();loadMCX()},60000);
+}
+init();
+</script>
+</body>
+</html>
