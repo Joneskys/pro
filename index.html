@@ -1,156 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Pr000</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+body { background:#0b1220;color:#e5e7eb;font-family:system-ui;margin:0 }
+header, .panel { background:#020617;padding:10px;position:sticky;top:0;z-index:9 }
+input,select,button { background:#0f172a;color:white;border:1px solid #1f2937;padding:6px 10px;border-radius:8px }
+button{cursor:pointer}
+table { width:100%; border-collapse:collapse; font-size:12px }
+th,td { padding:6px;border:1px solid #1f2937;text-align:center }
+th { background:#020617;position:sticky;top:40px }
+.green{color:#22c55e;font-weight:bold}
+.red{color:#ef4444;font-weight:bold}
+.orange{color:#f59e0b;font-weight:bold}
+.bold{font-weight:800}
+.small{font-size:11px;color:#94a3b8}
+.popup{position:fixed;bottom:20px;right:20px;background:#020617;padding:10px;border-radius:10px;display:none}
+.tradeBtn{background:#1e40af}
+.topcards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:10px}
+.card{background:#020617;padding:10px;border-radius:12px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="topcards">
+  <div class="card">Gold<div id="gold">₹--</div></div>
+  <div class="card">Silver<div id="silver">₹--</div></div>
+  <div class="card">Copper<div id="copper">₹--</div></div>
+  <div class="card">USDINR<div id="usd">₹--</div></div>
+</div>
+
+<header>
+  <input type="date" id="date" />
+  <button onclick="render()">Submit</button>
+  <input id="search" placeholder="Search..." oninput="render()" />
+  <button onclick="filter='buy';render()">Only Buy</button>
+  <button onclick="filter='sell';render()">Only Sell</button>
+  <button onclick="filter='all';render()">All</button>
+  <select id="sort" onchange="render()">
+    <option value="">Sort</option>
+    <option value="priceDesc">Price ↓</option>
+    <option value="volDesc">Volume ↓</option>
+    <option value="rsiDesc">RSI ↓</option>
+  </select>
+  <input id="newStock" placeholder="Add stock (INFY)">
+  <button onclick="addStock()">Add</button>
+  <button onclick="takeScreenshot()">📸 Screenshot</button>
+  <span class="small">Last refresh: <span id="time"></span></span>
+</header>
+
+<table>
+<thead>
+<tr>
+<th>Stock</th><th>Live</th><th>Today</th><th>1W</th><th>Vol(L)</th><th>1M</th>
+<th>RSI</th><th>EMA9</th><th>EMA21</th><th>Support</th><th>Resistance</th>
+<th>Trend</th><th>Signal</th><th>Trade</th><th>SL</th><th>Target</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<div class="popup" id="popup">
+  <span id="popupText"></span>
+  <button onclick="popup.style.display='none'">X</button>
+</div>
+
 <script>
 const WORKER = "https://red-tooth-e4f7.lovelyideas-in.workers.dev";
-const CANDLE_API = s => `${WORKER}/candles?symbol=${s}`;
+const STOCK_API = s => `${WORKER}?symbol=${s}`;
 const MCX_API = `${WORKER}/mcx`;
 
 let STOCKS = ["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
-let DB = {}, filter="all", muted=false, lastSignals={};
+let DB={}, filter="all", lastSignals={};
 
-async function loadStock(symbol){
-  try {
-    const res = await fetch(CANDLE_API(symbol));
-    const json = await res.json();
+function EMA(arr,p){let k=2/(p+1),e=arr[0];for(let v of arr)e=v*k+e*(1-k);return e;}
+function RSI(arr){let g=0,l=0;for(let i=1;i<=14;i++){let d=arr[i]-arr[i-1];d>0?g+=d:l-=d;}let rs=g/(l||1);return 100-(100/(1+rs));}
 
-    // Expected format: [{t,o,h,l,c,v}, ...]
-    DB[symbol] = json.map(x => ({
-      date: new Date(x.t * 1000).toISOString().slice(0,10),
-      open: +x.o,
-      high: +x.h,
-      low: +x.l,
-      close: +x.c,
-      volume: +x.v
-    })).filter(x => x.close);
-  } catch(e) {
-    console.warn(symbol, "fallback mock");
-    DB[symbol] = mock();
-  }
+async function loadStock(s){
+  try{
+    let json = await (await fetch(STOCK_API(s))).json();
+    DB[s] = json.map(x=>({
+      t:new Date(x.t*1000),
+      open:+x.o,high:+x.h,low:+x.l,close:+x.c,volume:+x.v
+    })).filter(x=>x.close);
+  }catch{console.warn(s,"fallback")}
 }
 
-// --------- INDICATORS ----------
-function EMA(values, period) {
-  let k = 2 / (period + 1);
-  let ema = values[0];
-  for (let i = 1; i < values.length; i++)
-    ema = values[i] * k + ema * (1 - k);
-  return ema;
+async function loadMCX(){
+  try{
+    let d = await (await fetch(MCX_API)).json();
+    gold.textContent = d.gold_10g?`₹${d.gold_10g}`:"₹--";
+    silver.textContent = d.silver_1kg?`₹${d.silver_1kg}`:"₹--";
+    copper.textContent = d.copper?`₹${d.copper}`:"₹--";
+    usd.textContent = d.usd_inr?`₹${d.usd_inr}`:"₹--";
+  }catch{}
 }
 
-function RSI(values, period = 14) {
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    let diff = values[i] - values[i - 1];
-    diff >= 0 ? gains += diff : losses -= diff;
-  }
-  let rs = gains / (losses || 1);
-  return 100 - (100 / (1 + rs));
-}
-
-// --------- STRUCTURE BASED S/R ----------
-function swingLevels(candles) {
-  let lows = candles.slice(-30).map(x => x.low);
-  let highs = candles.slice(-30).map(x => x.high);
-  return {
-    support: Math.min(...lows),
-    resistance: Math.max(...highs)
-  };
-}
-
-// --------- SIGNAL ENGINE ----------
-function generateSignal(price, ema9, ema21, rsi, support, resistance) {
-  if (price > ema9 && ema9 > ema21 && rsi > 55 && price > resistance * 0.995)
-    return "BUY";
-  if (price < ema9 && ema9 < ema21 && rsi < 45 && price < support * 1.005)
-    return "SELL";
+function signal(price,e9,e21,rsi){
+  if(e9>e21 && rsi>60) return "BUY";
+  if(e9<e21 && rsi<40) return "SELL";
   return "HOLD";
 }
 
-function calcTrade(sig, price, support, resistance) {
-  if (sig === "BUY") {
-    let sl = support;
-    let target = price + (price - sl) * 2;
-    return { entry: price, sl, target };
-  }
-  if (sig === "SELL") {
-    let sl = resistance;
-    let target = price - (sl - price) * 2;
-    return { entry: price, sl, target };
-  }
-  return { entry: price, sl: null, target: null };
-}
+function render(){
+  time.textContent=new Date().toLocaleTimeString();
+  let html="", q=search.value.toLowerCase();
+  let rows=[];
 
-// --------- ALERT ----------
-function alertSignal(sym, sig){
-  if(sig==="HOLD" || lastSignals[sym] === sig) return;
-  lastSignals[sym] = sig;
-  popupText.innerHTML = `<b class="${sig==='BUY'?'green':'red'}">${sym} ${sig}</b>`;
-  popup.style.display = "block";
+  for(let s of STOCKS){
+    let d=DB[s]; if(!d||d.length<30) continue;
+    if(q && !s.toLowerCase().includes(q)) continue;
 
-  if(!muted){
-    let a = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-    a.loop = true; a.play();
-    setTimeout(()=>{a.pause();a.currentTime=0},3000);
-  }
-}
+    let t=d.at(-1),cl=d.map(x=>x.close);
+    let ema9=EMA(cl.slice(-30),9);
+    let ema21=EMA(cl.slice(-50),21);
+    let rsi=RSI(cl.slice(-15));
 
-// --------- RENDER ----------
-function render() {
-  time.textContent = new Date().toLocaleTimeString();
-  let q = search.value.toLowerCase();
-  let rows = [];
-
-  for (let s of STOCKS) {
-    let d = DB[s];
-    if (!d || d.length < 30) continue;
-    if (q && !s.toLowerCase().includes(q)) continue;
-
-    let t = d.at(-1);
-    let closes = d.map(x=>x.close);
-    let ema9 = EMA(closes.slice(-50), 9);
-    let ema21 = EMA(closes.slice(-50), 21);
-    let rsi = RSI(closes.slice(-15));
-
-    let {support, resistance} = swingLevels(d);
-    let sig = generateSignal(t.close, ema9, ema21, rsi, support, resistance);
-    let trade = calcTrade(sig, t.close, support, resistance);
+    let sup=Math.min(...d.slice(-30).map(x=>x.low));
+    let res=Math.max(...d.slice(-30).map(x=>x.high));
+    let sig=signal(t.close,ema9,ema21,rsi);
 
     if(filter==='buy' && sig!=='BUY') continue;
     if(filter==='sell' && sig!=='SELL') continue;
 
-    let volL = Math.round(t.volume / 100000);
+    let sl=sig==="BUY"?sup:res;
+    let tgt=sig==="BUY"?t.close+(t.close-sl)*2:t.close-(sl-t.close)*2;
 
-    rows.push({s,t,rsi,ema9,ema21,support,resistance,sig,trade,volL});
+    rows.push({s,t,rsi,ema9,ema21,sup,res,sig,sl,tgt,vol:Math.round(t.volume/100000)});
   }
 
-  let html = "";
   for(let r of rows){
-    alertSignal(r.s,r.sig);
-    html += `
+    html+=`
     <tr>
       <td class="bold ${r.sig==='BUY'?'green':r.sig==='SELL'?'red':''}">${r.s}</td>
       <td>${r.t.close.toFixed(2)}</td>
-      <td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)} V:${r.volL}L</td>
-      <td>-</td><td>-</td>
+      <td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)}</td>
+      <td class="small">-</td>
+      <td>${r.vol}</td>
+      <td class="small">-</td>
       <td>${r.rsi.toFixed(1)}</td>
       <td>${r.ema9.toFixed(2)}</td>
       <td>${r.ema21.toFixed(2)}</td>
-      <td>${r.support.toFixed(2)}</td>
-      <td>${r.resistance.toFixed(2)}</td>
-      <td>${r.ema9 > r.ema21 ? 'Uptrend' : 'Downtrend'}</td>
+      <td>${r.sup.toFixed(2)}</td>
+      <td>${r.res.toFixed(2)}</td>
+      <td>${r.ema9>r.ema21?"Uptrend":"Downtrend"}</td>
       <td class="${r.sig==='BUY'?'green':r.sig==='SELL'?'red':'orange'}">${r.sig}</td>
-      <td>${r.trade.entry.toFixed(2)}</td>
-      <td>${r.trade.sl ? r.trade.sl.toFixed(2) : '-'}</td>
-      <td>${r.trade.target ? r.trade.target.toFixed(2) : '-'}</td>
-      <td><button onclick="openTrade('${r.s}',${r.trade.entry},${r.trade.sl||0},${r.trade.target||0})">Trade</button></td>
+      <td><button class="tradeBtn" onclick="openTrade('${r.s}',${r.t.close},${r.sl},${r.tgt})">Trade</button></td>
+      <td>${r.sl.toFixed(2)}</td>
+      <td>${r.tgt.toFixed(2)}</td>
     </tr>`;
   }
-  tbody.innerHTML = html;
+  tbody.innerHTML=html;
 }
 
-// -------- INIT ----------
+function addStock(){
+  let s=newStock.value.trim().toUpperCase();
+  if(s && !STOCKS.includes(s)){STOCKS.push(s);loadStock(s);}
+  newStock.value="";
+}
+
+function takeScreenshot(){
+  html2canvas(document.body).then(canvas=>{
+    let a=document.createElement("a");
+    let d=new Date();
+    let name=d.toLocaleTimeString().replace(/:/g,"")+ "_" + d.toLocaleDateString().replace(/\//g,"")+"_STOCKS.png";
+    a.download=name;a.href=canvas.toDataURL();a.click();
+  });
+}
+
+function openTrade(s,e,sl,t){
+  let w=window.open();
+  w.document.write(`<body style="background:#0b1220;color:white;font-family:sans-serif;padding:20px">
+  <h2>${s}</h2>
+  Entry: ${e}<br>SL: ${sl}<br>Target: ${t}<br>
+  Qty:<input id=q oninput="b.value=(q.value*${e}).toFixed(2)">
+  Budget:<input id=b oninput="q.value=Math.floor(b.value/${e})">
+  </body>`);
+}
+
 async function init(){
   for(let s of STOCKS) await loadStock(s);
-  render();
-  setInterval(()=>render(), 60000);
+  render(); loadMCX();
+  setInterval(()=>{render();loadMCX()},60000);
 }
 init();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</body>
+</html>
