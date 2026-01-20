@@ -1,53 +1,48 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>Professional Trading Dashboard</title>
 <style>
 body {
   background: radial-gradient(circle at top, #0c1a33, #020814);
-  font-family: Inter, system-ui;
+  font-family: system-ui;
   color: white;
   margin: 0;
 }
-header { padding: 20px; font-size: 26px; font-weight: bold; }
+header { padding:20px; font-size:26px; font-weight:bold; }
 .container { padding: 10px 20px; }
 
-.cards { display:grid; grid-template-columns: repeat(4,1fr); gap:15px; }
+.cards { display:grid; grid-template-columns: repeat(4,1fr); gap:15px; margin-bottom:15px;}
 .card {
-  background:#081a36;
-  border-radius:16px;
-  padding:20px;
-  text-align:center;
+  background:#081a36; border-radius:18px; padding:20px; text-align:center;
   box-shadow: inset 0 0 20px rgba(0,0,0,.6);
 }
 
-.controls { display:flex; gap:8px; margin:15px 0; flex-wrap:wrap;}
+.controls { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;}
 input,button,select {
-  background:#081f40;
-  color:white;
-  border:1px solid #1c3b6c;
-  padding:8px 12px;
-  border-radius:10px;
+  background:#081f40; color:white; border:1px solid #1c3b6c;
+  padding:8px 12px; border-radius:12px;
 }
 
-table { width:100%; border-collapse:collapse; font-size:14px; }
-thead { position:sticky; top:0; background:#071831; }
+table { width:100%; border-collapse:collapse; font-size:14px;}
+thead { background:#071831; position:sticky; top:0;}
 th,td { padding:8px; border-bottom:1px solid #0f2a52; text-align:center;}
-.stock-buy {color:#00ff9c;font-weight:bold;}
-.stock-sell{color:#ff4d4d;font-weight:bold;}
-.stock-hold{color:white;font-weight:bold;}
+
+.stock-buy{color:#00ff9c;font-weight:bold}
+.stock-sell{color:#ff4d4d;font-weight:bold}
+.stock-hold{color:white;font-weight:bold}
 
 .trend-up{color:#00ff9c}
 .trend-down{color:#ff4d4d}
 .trend-side{color:orange}
 
-button.trade {background:#0d3c78;border-radius:20px}
+.tradebtn{background:#0d3c78;border-radius:20px;padding:6px 14px;}
+
 .popup {
- position:fixed; bottom:20px; right:20px;
- background:#081f40; padding:12px;
- border-radius:12px; margin-top:8px;
- box-shadow:0 0 20px black;
+ position:fixed; right:20px; bottom:20px;
+ background:#081f40; padding:12px; border-radius:12px;
+ box-shadow:0 0 20px black; margin-top:6px;
 }
 </style>
 </head>
@@ -63,7 +58,7 @@ button.trade {background:#0d3c78;border-radius:20px}
 </div>
 
 <div class="controls">
-  <input id="search" placeholder="Search stock">
+  <input id="search" placeholder="Search stock" oninput="render()">
   <button onclick="filterSignal='BUY';render()">Only Buy</button>
   <button onclick="filterSignal='SELL';render()">Only Sell</button>
   <button onclick="filterSignal='ALL';render()">All</button>
@@ -95,105 +90,128 @@ button.trade {background:#0d3c78;border-radius:20px}
 </table>
 
 <div id="alerts"></div>
-
 </div>
 
 <script>
 const worker="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
 const stocks=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","JPPOWER","HDFCBANK","SBIN","MON100","RVNL","RBLBANK","TCS","KIMS"];
-let data={},filterSignal="ALL",sortBy="";
+let data={},filterSignal="ALL",sortBy="",lastSignal={};
 
 async function loadStock(sym){
- let r=await fetch(`${worker}/candles?symbol=${sym}`);
- let j=await r.json();
- let candles=j.candles;
- if(!candles||candles.length<30) return;
+  try{
+    const r = await fetch(`${worker}/candles?symbol=${sym}`);
+    const j = await r.json();
+    const c = j.candles;
+    if(!c || c.length < 30) return;
 
- let closes=candles.map(c=>c.close);
- let highs=candles.map(c=>c.high);
- let lows=candles.map(c=>c.low);
- let vols=candles.map(c=>c.volume);
+    const closes=c.map(x=>x.close);
+    const highs=c.map(x=>x.high);
+    const lows=c.map(x=>x.low);
+    const vols=c.map(x=>x.volume);
 
- let live=closes.at(-1);
- let rsi=calcRSI(closes);
- let ema9=ema(closes,9);
- let ema21=ema(closes,21);
+    const live = closes.at(-1);
+    const ema9 = ema(closes,9);
+    const ema21 = ema(closes,21);
+    const rsi = calcRSI(closes);
 
- let support=Math.min(...lows.slice(-10));
- let resistance=Math.max(...highs.slice(-10));
+    const support = Math.min(...lows.slice(-10));
+    const resistance = Math.max(...highs.slice(-10));
 
- let trend=ema9>ema21?"Uptrend":ema9<ema21?"Downtrend":"Sideways";
- let signal=(ema9>ema21 && rsi>55)?"BUY":(ema9<ema21 && rsi<45)?"SELL":"HOLD";
+    const trend = ema9>ema21?"Uptrend":ema9<ema21?"Downtrend":"Sideways";
+    const signal = ema9>ema21 && rsi>55 ? "BUY" :
+                   ema9<ema21 && rsi<45 ? "SELL" : "HOLD";
 
- let entry=live;
- let sl=signal==="BUY"?support:resistance;
- let target=signal==="BUY"?live+(live-sl):live-(sl-live);
+    if(lastSignal[sym] && lastSignal[sym]!==signal && (signal==="BUY"||signal==="SELL")){
+      popup(sym+" "+signal);
+      beep();
+    }
+    lastSignal[sym]=signal;
 
- data[sym]={sym,live,rsi,ema9,ema21,support,resistance,trend,signal,entry,sl,target,
- today:`L:${lows.at(-1).toFixed(1)} H:${highs.at(-1).toFixed(1)}`,
- week:`L:${Math.min(...lows.slice(-5)).toFixed(1)} H:${Math.max(...highs.slice(-5)).toFixed(1)}`,
- month:`L:${Math.min(...lows.slice(-22)).toFixed(1)} H:${Math.max(...highs.slice(-22)).toFixed(1)}`,
- vol:(vols.at(-1)/100000).toFixed(0)
- };
+    data[sym]={
+      sym,live,rsi,ema9,ema21,support,resistance,trend,signal,
+      today:`L:${lows.at(-1).toFixed(1)} H:${highs.at(-1).toFixed(1)}`,
+      week:`L:${Math.min(...lows.slice(-5)).toFixed(1)} H:${Math.max(...highs.slice(-5)).toFixed(1)}`,
+      month:`L:${Math.min(...lows.slice(-22)).toFixed(1)} H:${Math.max(...highs.slice(-22)).toFixed(1)}`,
+      vol:(vols.at(-1)/100000).toFixed(0),
+      sl: signal==="BUY"?support:resistance,
+      target: signal==="BUY"?live+(live-support):live-(resistance-live)
+    };
+  }catch(e){}
 }
 
 function render(){
- let rows=Object.values(data)
- .filter(s=>filterSignal==="ALL"||s.signal===filterSignal)
- .filter(s=>s.sym.includes(document.getElementById("search").value.toUpperCase()));
+  let rows = Object.values(data)
+    .filter(s=>filterSignal==="ALL"||s.signal===filterSignal)
+    .filter(s=>s.sym.includes(search.value.toUpperCase()));
 
- if(sortBy){
-  rows.sort((a,b)=>{
-   if(sortBy==="price_desc")return b.live-a.live;
-   if(sortBy==="price_asc")return a.live-b.live;
-   if(sortBy==="rsi_desc")return b.rsi-a.rsi;
-   if(sortBy==="rsi_asc")return a.rsi-b.rsi;
-   if(sortBy==="vol_desc")return b.vol-a.vol;
-   if(sortBy==="vol_asc")return a.vol-b.vol;
-  });
- }
+  if(sortBy){
+    rows.sort((a,b)=>{
+      if(sortBy==="price_desc")return b.live-a.live;
+      if(sortBy==="price_asc")return a.live-b.live;
+      if(sortBy==="rsi_desc")return b.rsi-a.rsi;
+      if(sortBy==="rsi_asc")return a.rsi-b.rsi;
+      if(sortBy==="vol_desc")return b.vol-a.vol;
+      if(sortBy==="vol_asc")return a.vol-b.vol;
+    });
+  }
 
- body.innerHTML=rows.map(s=>`
-<tr>
-<td class="stock-${s.signal.toLowerCase()}">${s.sym}</td>
-<td>${s.live.toFixed(2)}</td>
-<td>${s.today}</td>
-<td>${s.week}</td>
-<td>${s.vol}</td>
-<td>${s.month}</td>
-<td>${s.rsi.toFixed(1)}</td>
-<td>${s.ema9.toFixed(2)}</td>
-<td>${s.ema21.toFixed(2)}</td>
-<td>${s.support.toFixed(2)}</td>
-<td>${s.resistance.toFixed(2)}</td>
-<td class="trend-${s.trend.startsWith('Up')?'up':s.trend.startsWith('Down')?'down':'side'}">${s.trend}</td>
-<td>${s.signal}</td>
-<td><button class="trade" onclick="trade('${s.sym}')">Trade</button></td>
-<td>${s.sl.toFixed(2)}</td>
-<td>${s.target.toFixed(2)}</td>
-</tr>`).join("");
+  body.innerHTML = rows.map(s=>`
+  <tr>
+    <td class="stock-${s.signal.toLowerCase()}">${s.sym}</td>
+    <td>${s.live.toFixed(2)}</td>
+    <td>${s.today}</td>
+    <td>${s.week}</td>
+    <td>${s.vol}</td>
+    <td>${s.month}</td>
+    <td>${s.rsi.toFixed(1)}</td>
+    <td>${s.ema9.toFixed(2)}</td>
+    <td>${s.ema21.toFixed(2)}</td>
+    <td>${s.support.toFixed(2)}</td>
+    <td>${s.resistance.toFixed(2)}</td>
+    <td class="trend-${s.trend.startsWith('Up')?'up':s.trend.startsWith('Down')?'down':'side'}">${s.trend}</td>
+    <td>${s.signal}</td>
+    <td><button class="tradebtn" onclick="trade('${s.sym}')">Trade</button></td>
+    <td>${s.sl.toFixed(2)}</td>
+    <td>${s.target.toFixed(2)}</td>
+  </tr>`).join("");
 }
 
 function trade(sym){
- let s=data[sym];
- location.href=`trade.html?stock=${sym}&entry=${s.entry}&sl=${s.sl}&target=${s.target}`;
+  const s=data[sym];
+  location.href=`trade.html?stock=${sym}&entry=${s.live}&sl=${s.sl}&target=${s.target}`;
 }
 
 function ema(arr,n){let k=2/(n+1),e=arr[0];for(let i=1;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;}
-function calcRSI(arr){
- let g=0,l=0;
- for(let i=arr.length-15;i<arr.length-1;i++){
-  let d=arr[i+1]-arr[i];
-  if(d>0)g+=d; else l-=d;
- }
- let rs=g/l; return 100-(100/(1+rs));
+function calcRSI(a){
+  let g=0,l=0;
+  for(let i=a.length-15;i<a.length-1;i++){
+    let d=a[i+1]-a[i];
+    if(d>0)g+=d; else l-=d;
+  }
+  return 100-(100/(1+(g/l)));
+}
+
+function popup(msg){
+  const d=document.createElement("div");
+  d.className="popup";
+  d.innerHTML=`${msg} <button onclick="this.parentElement.remove()">X</button>`;
+  alerts.appendChild(d);
+}
+
+function beep(){
+  const ctx=new AudioContext();
+  const o=ctx.createOscillator();
+  o.connect(ctx.destination);
+  o.start();
+  setTimeout(()=>o.stop(),300);
 }
 
 async function refresh(){
- for(let s of stocks) await loadStock(s);
- render();
- time.innerText="Last refresh: "+new Date().toLocaleTimeString();
+  for(const s of stocks) await loadStock(s);
+  render();
+  time.innerText="Last refresh: "+new Date().toLocaleTimeString();
 }
+
 refresh();
 setInterval(refresh,60000);
 </script>
