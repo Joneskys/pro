@@ -11,11 +11,11 @@ body{margin:0;font-family:system-ui;background:#0f172a;color:#e5e7eb}
 .big{font-size:18px;font-weight:bold}
 header{position:sticky;top:0;background:#020617;padding:10px;border-bottom:1px solid #1f2937;z-index:10}
 .controls{display:flex;gap:6px;flex-wrap:wrap}
-input,button{background:#0f172a;color:white;border:1px solid #1f2937;padding:6px;border-radius:8px}
+input,button,select{background:#0f172a;color:white;border:1px solid #1f2937;padding:6px;border-radius:8px}
 .container{padding:10px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{border:1px solid #1f2937;padding:6px;text-align:center}
-th{position:sticky;top:140px;background:#020617;cursor:pointer}
+th{position:sticky;top:140px;background:#020617}
 tr:nth-child(even){background:#0b1220}
 .green{color:#22c55e;font-weight:bold}
 .red{color:#ef4444;font-weight:bold}
@@ -38,9 +38,18 @@ tr:nth-child(even){background:#0b1220}
     <input type="date" id="date">
     <button onclick="render()">Submit</button>
     <input id="search" placeholder="Search..." oninput="render()">
+
     <button onclick="filter='buy';render()">Only Buy</button>
     <button onclick="filter='sell';render()">Only Sell</button>
     <button onclick="filter='all';render()">All</button>
+
+    <!-- NEW SORT DROPDOWN -->
+    <select id="sort" onchange="render()">
+      <option value="">Sort: Default</option>
+      <option value="volDesc">Volume High → Low</option>
+      <option value="volAsc">Volume Low → High</option>
+    </select>
+
     <input id="newStock" placeholder="Add stock (INFY)">
     <button onclick="addStock()">Add</button>
     <button onclick="muted=!muted">Mute</button>
@@ -134,10 +143,12 @@ async function loadMCX(){
 function render(){
   time.textContent=new Date().toLocaleTimeString();
   let q=search.value.toLowerCase();
-  let html="";
+  let rows=[];
+
   for(let s of STOCKS){
-    if(q && !s.toLowerCase().includes(q))continue;
     let d=DB[s]; if(!d||d.length<30)continue;
+    if(q && !s.toLowerCase().includes(q))continue;
+
     let t=d.at(-1),cl=d.map(x=>x.close);
     let e9=EMA(cl.slice(-9),9),e21=EMA(cl.slice(-21),21),rsi=RSI(cl.slice(-15));
     let m=d.slice(-21),w=d.slice(-6);
@@ -145,29 +156,42 @@ function render(){
     let sig=signal(e9,e21,rsi);
     if(filter==="buy"&&sig!=="BUY")continue;
     if(filter==="sell"&&sig!=="SELL")continue;
-    alertSignal(s,sig);
+
     let entry=t.close,sl=sig==="BUY"?entry*0.98:entry*1.02,tgt=sig==="BUY"?entry*1.03:entry*0.97;
-    let color=sig==="BUY"?"green":sig==="SELL"?"red":"";
+    let volLakh=Math.round(t.volume/100000);
+
+    rows.push({s,entry,t,w,m,rsi,e9,e21,sup,res,sig,sl,tgt,volLakh});
+  }
+
+  // VOLUME SORT
+  let sort=document.getElementById("sort").value;
+  if(sort==="volDesc") rows.sort((a,b)=>b.volLakh-a.volLakh);
+  if(sort==="volAsc") rows.sort((a,b)=>a.volLakh-b.volLakh);
+
+  let html="";
+  for(let r of rows){
+    let color=r.sig==="BUY"?"green":r.sig==="SELL"?"red":"";
     html+=`
     <tr>
-      <td class="${color}"><b>${s}</b></td>
-      <td>${entry.toFixed(2)}</td>
-      <td class="small">L:${t.low.toFixed(1)} H:${t.high.toFixed(1)} ${( (t.close-t.open)/t.open*100).toFixed(1)}% V:${Math.round(t.volume/100000)}L</td>
-      <td class="small">L:${Math.min(...w.map(x=>x.low)).toFixed(1)} H:${Math.max(...w.map(x=>x.high)).toFixed(1)}</td>
-      <td class="small">L:${Math.min(...m.map(x=>x.low)).toFixed(1)} H:${Math.max(...m.map(x=>x.high)).toFixed(1)}</td>
-      <td>${rsi.toFixed(1)}</td>
-      <td>${e9.toFixed(2)}</td>
-      <td>${e21.toFixed(2)}</td>
-      <td>${sup.toFixed(2)}</td>
-      <td>${res.toFixed(2)}</td>
-      <td>${e9>e21?"Uptrend":"Downtrend"}</td>
-      <td class="${sig==="BUY"?"green":sig==="SELL"?"red":"orange"}">${sig}</td>
-      <td>${entry.toFixed(2)}</td>
-      <td>${sl.toFixed(2)}</td>
-      <td>${tgt.toFixed(2)}</td>
-      <td><button onclick="openTrade('${s}',${entry},${sl},${tgt})">Trade</button></td>
+      <td class="${color}"><b>${r.s}</b></td>
+      <td>${r.entry.toFixed(2)}</td>
+      <td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)} ${( (r.t.close-r.t.open)/r.t.open*100).toFixed(1)}% V:${r.volLakh}L</td>
+      <td class="small">L:${Math.min(...r.w.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.w.map(x=>x.high)).toFixed(1)}</td>
+      <td class="small">L:${Math.min(...r.m.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.m.map(x=>x.high)).toFixed(1)}</td>
+      <td>${r.rsi.toFixed(1)}</td>
+      <td>${r.e9.toFixed(2)}</td>
+      <td>${r.e21.toFixed(2)}</td>
+      <td>${r.sup.toFixed(2)}</td>
+      <td>${r.res.toFixed(2)}</td>
+      <td>${r.e9>r.e21?"Uptrend":"Downtrend"}</td>
+      <td class="${r.sig==="BUY"?"green":r.sig==="SELL"?"red":"orange"}">${r.sig}</td>
+      <td>${r.entry.toFixed(2)}</td>
+      <td>${r.sl.toFixed(2)}</td>
+      <td>${r.tgt.toFixed(2)}</td>
+      <td><button onclick="openTrade('${r.s}',${r.entry},${r.sl},${r.tgt})">Trade</button></td>
     </tr>`;
   }
+
   tbody.innerHTML=html;
 }
 
@@ -175,7 +199,6 @@ function openTrade(s,e,sl,t){window.open(`trade.html?stock=${s}&entry=${e}&sl=${
 
 async function init(){
   for(let s of STOCKS) await loadStock(s);
-  date.value=DB[STOCKS[0]].at(-1).date;
   render();loadMCX();
   setInterval(()=>{render();loadMCX()},60000);
 }
