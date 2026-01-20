@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Trade Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{background:#0f172a;color:white;font-family:system-ui}
+.box{max-width:500px;margin:40px auto;background:#020617;padding:20px;border-radius:16px;border:1px solid #1f2937}
+input{width:100%;padding:8px;margin:6px 0;background:#0f172a;color:white;border:1px solid #1f2937;border-radius:8px}
+.row{display:flex;justify-content:space-between;margin:6px 0}
+.green{color:#22c55e}.red{color:#ef4444}
+</style>
+</head>
+<body>
+<div class="box">
+<h2 id="title"></h2>
+<label>Entry</label><input id="entry">
+<label>Stop Loss</label><input id="sl">
+<label>Target</label><input id="target">
+<label>Quantity</label><input id="qty" oninput="syncBudget()">
+<label>Budget</label><input id="budget" oninput="syncQty()">
+<button onclick="calc()">Calculate</button>
+<div id="out"></div>
+</div>
+
+<script>
+const p=new URLSearchParams(location.search);
+entry.value=p.get("entry");
+sl.value=p.get("sl");
+target.value=p.get("target");
+title.textContent=p.get("stock");
+
+function syncBudget(){
+  budget.value=(qty.value*entry.value).toFixed(2);
+}
+function syncQty(){
+  qty.value=Math.floor(budget.value/entry.value)||0;
+}
+
+function calc(){
+  let b=entry.value*qty.value,s=target.value*qty.value;
+  let turn=b+s;
+  let bro=Math.min(20,b*0.0005)+Math.min(20,s*0.0005);
+  let stt=s*0.00025;
+  let exch=turn*0.0000297;
+  let sebi=turn*0.000001;
+  let gst=0.18*(bro+exch+sebi);
+  let total=bro+stt+exch+sebi+gst;
+  let gross=(target.value-entry.value)*qty.value;
+  let net=gross-total;
+  out.innerHTML=`
+  <div class="row">Gross: ₹${gross.toFixed(2)}</div>
+  <div class="row">Charges: ₹${total.toFixed(2)}</div>
+  <div class="row ${net>=0?"green":"red"}">Net: ₹${net.toFixed(2)}</div>`;
+}
+</script>
+</body>
+</html>
