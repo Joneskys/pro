@@ -4,52 +4,44 @@
 <meta charset="UTF-8">
 <title>Trade</title>
 <style>
-body{background:#020814;color:#eaf2ff;font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh}
-.card{background:#061225;padding:30px;border-radius:20px;width:400px;box-shadow:0 20px 60px #000}
-input{width:100%;margin:6px 0;padding:10px;border-radius:10px;background:#0b1f3f;border:1px solid #234;color:white}
-button{padding:10px 20px;border-radius:10px;background:#1c3faa;color:white;border:none;margin-top:10px}
-.profit{color:#00e676;font-size:18px;font-weight:bold}
-.loss{color:#ff5252;font-size:18px;font-weight:bold}
+body{background:#020b18;color:white;font-family:Arial}
+.card{max-width:400px;margin:40px auto;background:#071a33;padding:20px;border-radius:20px}
+input{width:100%;padding:8px;margin:5px;background:#020b18;color:white;border:1px solid #1c3b66}
+.green{color:#00ff99;font-size:22px}
+.red{color:#ff4444;font-size:22px}
 </style>
 </head>
 <body>
 <div class="card">
-<h2 id="title"></h2>
-
-Entry<input id="entry">
-Stop Loss<input id="sl">
-Target<input id="target">
-Quantity<input id="qty">
-Budget (₹)<input id="budget">
-
+<h2 id="stock"></h2>
+Entry <input id="entry">
+SL <input id="sl">
+Target <input id="target">
+Qty <input id="qty">
+Budget <input id="budget">
 <button onclick="calc()">Calculate</button>
-
-<p id="slp" class="loss"></p>
-<p id="tp" class="profit"></p>
-<p id="rr"></p>
+<div id="out"></div>
 </div>
 
 <script>
-const q=new URLSearchParams(location.search);
-title.innerText=q.get("stock");
-entry.value=q.get("entry");
-sl.value=q.get("sl");
-target.value=q.get("target");
-
-function round2(x){return Math.round(x*20)/20}
+const p=new URLSearchParams(location.search);
+stock.innerText=p.get("stock");
+entry.value=p.get("entry");
+sl.value=p.get("sl");
+target.value=p.get("target");
 
 function calc(){
- let e=+entry.value, s=+sl.value, t=+target.value;
- let qv=+qty.value, b=+budget.value;
- if(b && !qv){ qv=Math.floor((b*5)/e); qty.value=qv }
- if(qv && !b){ b=(qv*e)/5; budget.value=b.toFixed(2) }
+  let e=+entry.value,s=+sl.value,t=+target.value;
+  let q=+qty.value,b=+budget.value;
+  if(b&&!q) q=Math.floor((b*5)/e);
+  if(q&&!b) b=(q*e)/5;
+  qty.value=q; budget.value=b.toFixed(2);
 
- let loss=(s-e)*qv;
- let profit=(t-e)*qv;
+  let loss=(e-s)*q;
+  let prof=(t-e)*q;
 
- slp.innerText="SL Hit P&L: ₹"+round2(loss);
- tp.innerText="Target Hit P&L: ₹"+round2(profit);
- rr.innerHTML=`RR Ratio: <b style="color:${profit>Math.abs(loss)?'#00e676':'#ff5252'}">${(profit/Math.abs(loss)).toFixed(2)}</b>`;
+  out.innerHTML=`<div class="red">SL Hit: ₹${loss.toFixed(2)}</div>
+                 <div class="green">Target Hit: ₹${prof.toFixed(2)}</div>`;
 }
 </script>
 </body>
