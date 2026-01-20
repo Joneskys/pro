@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Pro Stock Dashboard</title>
+<meta charset="UTF-8" />
+<title>Trading Dashboard</title>
+
 <style>
 body{margin:0;background:#050b1c;color:#fff;font-family:Arial}
-header{padding:15px;background:#060f25}
-.cards{display:flex;gap:10px}
-.card{flex:1;background:#0c1733;padding:12px;border-radius:12px;text-align:center}
-.controls{display:flex;flex-wrap:wrap;gap:8px;padding:10px}
-input,select,button{background:#0e1c38;color:#fff;border:1px solid #233;padding:6px 10px;border-radius:8px}
+header{padding:15px}
+.cards{display:flex;gap:12px}
+.card{flex:1;background:#0c1733;padding:14px;border-radius:14px;text-align:center;font-size:18px}
+.controls{display:flex;gap:10px;flex-wrap:wrap;padding:10px}
+input,button,select{background:#0e1c38;color:white;border:1px solid #233;padding:6px 10px;border-radius:8px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{padding:8px;border-bottom:1px solid #1a2444;text-align:center}
 th{position:sticky;top:0;background:#050b1c}
-.buy{background:#042616}
-.sell{background:#2a0505}
-.popup{position:fixed;right:20px;bottom:20px;background:#111;padding:10px;border-radius:10px;max-width:250px}
+.buy{background:#052814}
+.sell{background:#2a0606}
 </style>
 </head>
+
 <body>
 
 <header>
@@ -44,114 +45,142 @@ th{position:sticky;top:0;background:#050b1c}
   <button onclick="addStock()">Add</button>
 </div>
 
-<div style="padding:8px">Last refresh: <span id="time">--</span></div>
+<div style="padding:10px">Last refresh: <span id="time">--</span></div>
 
 <table>
 <thead>
 <tr>
-<th>Stock</th><th>Price</th><th>RSI</th><th>Vol(L)</th>
-<th>Signal</th><th>Entry</th><th>SL</th><th>Target</th><th>Trade</th>
+  <th>Stock</th>
+  <th>Price</th>
+  <th>RSI</th>
+  <th>Volume(L)</th>
+  <th>Signal</th>
+  <th>Entry</th>
+  <th>SL</th>
+  <th>Target</th>
+  <th>Trade</th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
 </table>
 
 <script>
-const worker="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
-let stocks=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
-let data={},filter="ALL",sort=null,previousSignals={};
+const worker = "https://red-tooth-e4f7.lovelyideas-in.workers.dev";
+
+let stocks = [
+"NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA",
+"BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH",
+"HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"
+];
+
+let data = {}, filter="ALL", sort=null;
 
 function rand(min,max){return +(Math.random()*(max-min)+min).toFixed(2)}
 
 async function loadStock(sym){
- try{
-  const r=await fetch(`${worker}/?symbol=${sym}`);
-  const j=await r.json();
-  const price=j.price||rand(100,500);
-  const vol=Math.floor(rand(50,500));
-  const rsi=rand(20,80);
-  const signal=rsi>60?"BUY":rsi<40?"SELL":"HOLD";
-  const entry=price,sl=price*0.98,target=price*1.02;
-  data[sym]={sym,price,vol,rsi,signal,entry,sl,target};
- }catch{
-  data[sym]={sym,price:rand(100,500),vol:rand(50,500),rsi:rand(20,80),signal:"HOLD"};
- }
+  try{
+    const res = await fetch(`${worker}/?symbol=${sym}`);
+    const json = await res.json();
+
+    const price = json?.price || rand(100,500);
+    const vol = Math.floor(rand(50,400));
+    const rsi = rand(20,80);
+    const signal = rsi>60 ? "BUY" : rsi<40 ? "SELL" : "HOLD";
+
+    data[sym] = {
+      sym, price, vol, rsi, signal,
+      entry: price,
+      sl: price*0.98,
+      target: price*1.02
+    };
+  }catch{
+    data[sym] = {
+      sym,
+      price: rand(100,500),
+      vol: rand(50,400),
+      rsi: rand(20,80),
+      signal: "HOLD",
+      entry: 0, sl: 0, target: 0
+    };
+  }
 }
 
 function render(){
- let arr=Object.values(data);
+  let arr = Object.values(data);
 
- if(filter!=="ALL") arr=arr.filter(x=>x.signal===filter);
- if(sort==="volume") arr.sort((a,b)=>b.vol-a.vol);
- if(sort==="rsi") arr.sort((a,b)=>b.rsi-a.rsi);
- if(sort==="price") arr.sort((a,b)=>b.price-a.price);
+  if(filter!=="ALL") arr = arr.filter(x=>x.signal===filter);
+  if(sort==="volume") arr.sort((a,b)=>b.vol-a.vol);
+  if(sort==="rsi") arr.sort((a,b)=>b.rsi-a.rsi);
+  if(sort==="price") arr.sort((a,b)=>b.price-a.price);
 
- document.getElementById("tbody").innerHTML=arr.map(s=>`
-<tr class="${s.signal==="BUY"?"buy":s.signal==="SELL"?"sell":""}">
-<td><b>${s.sym}</b></td>
-<td>${s.price.toFixed(2)}</td>
-<td>${s.rsi.toFixed(1)}</td>
-<td>${s.vol}</td>
-<td>${s.signal}</td>
-<td>${s.entry.toFixed(2)}</td>
-<td>${s.sl.toFixed(2)}</td>
-<td>${s.target.toFixed(2)}</td>
-<td><button onclick="openTrade('${s.sym}')">Trade</button></td>
-</tr>`).join("");
+  document.getElementById("tbody").innerHTML = arr.map(s => `
+    <tr class="${s.signal==="BUY"?"buy":s.signal==="SELL"?"sell":""}">
+      <td><b>${s.sym}</b></td>
+      <td>${s.price.toFixed(2)}</td>
+      <td>${s.rsi.toFixed(1)}</td>
+      <td>${s.vol}</td>
+      <td>${s.signal}</td>
+      <td>${s.entry.toFixed(2)}</td>
+      <td>${s.sl.toFixed(2)}</td>
+      <td>${s.target.toFixed(2)}</td>
+      <td><button onclick="openTrade('${s.sym}')">Trade</button></td>
+    </tr>
+  `).join("");
 }
 
 function openTrade(sym){
- const s=data[sym];
- const html=`
-<html><body style="background:#000;color:white;padding:20px;font-family:Arial">
-<h2>${sym}</h2>
-Entry: ${s.entry.toFixed(2)}<br>
-SL: ${s.sl.toFixed(2)}<br>
-Target: ${s.target.toFixed(2)}<br><br>
-Qty: <input id="q" value="10"><br>
-Budget: <input id="b"><br><br>
-<div id="pl"></div>
-<script>
-const entry=${s.entry};
-const sl=${s.sl};
-const target=${s.target};
-function calc(){
- let qty=+q.value||0;
- let cost=qty*entry;
- b.value=cost.toFixed(2);
- let loss=(sl-entry)*qty;
- let profit=(target-entry)*qty;
- pl.innerHTML="SL P/L: "+loss.toFixed(2)+"<br>Target P/L: "+profit.toFixed(2);
-}
-q.oninput=calc; b.oninput=()=>{q.value=(b.value/entry).toFixed(0);calc()}
-calc();
-</script>
-</body></html>`;
- const w=window.open(); w.document.write(html);
+  const s = data[sym];
+  const html = `
+    <html><body style="background:black;color:white;font-family:Arial;padding:20px">
+    <h2>${sym}</h2>
+    Entry: ${s.entry.toFixed(2)}<br>
+    SL: ${s.sl.toFixed(2)}<br>
+    Target: ${s.target.toFixed(2)}<br><br>
+    Qty: <input id="q" value="10"><br>
+    Budget: <input id="b"><br>
+    <div id="pl"></div>
+    <script>
+      const entry=${s.entry};
+      const sl=${s.sl};
+      const target=${s.target};
+      function calc(){
+        let qty=+q.value||0;
+        b.value=(qty*entry).toFixed(2);
+        pl.innerHTML="SL P/L: "+((sl-entry)*qty).toFixed(2)+"<br>Target P/L: "+((target-entry)*qty).toFixed(2);
+      }
+      q.oninput=calc;
+      b.oninput=()=>{q.value=(b.value/entry).toFixed(0);calc();}
+      calc();
+    </script>
+    </body></html>`;
+  const w = window.open();
+  w.document.write(html);
 }
 
 function setFilter(f){filter=f;render()}
 function setSort(s){sort=s;render()}
-function addStock(){const s=newStock.value.toUpperCase(); if(s){stocks.push(s);loadStock(s)}}
+function addStock(){const s=newStock.value.toUpperCase(); if(s){stocks.push(s); loadStock(s)}}
 
 async function loadAll(){
- for(let s of stocks) await loadStock(s);
- render();
- document.getElementById("time").innerText=new Date().toLocaleTimeString();
+  for(let s of stocks) await loadStock(s);
+  render();
+  document.getElementById("time").innerText = new Date().toLocaleTimeString();
 }
 
 async function loadMCX(){
- for(const sym of ["GOLD","SILVER"]){
-  try{
-    const r=await fetch(`${worker}/mcx?symbol=${sym}`);
-    const j=await r.json();
-    const p=j?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    document.getElementById(sym.toLowerCase()).innerText=p?`₹${p.toFixed(2)}`:"₹--";
-  }catch{}
- }
+  for(const sym of ["GOLD","SILVER"]){
+    try{
+      const r = await fetch(`${worker}/mcx?symbol=${sym}`);
+      const j = await r.json();
+      const price = j?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      document.getElementById(sym.toLowerCase()).innerText =
+        price ? `₹${price.toFixed(2)}` : "₹--";
+    }catch{}
+  }
 }
 
-loadAll(); loadMCX();
+loadAll();
+loadMCX();
 setInterval(()=>{loadAll();loadMCX()},60000);
 </script>
 </body>
