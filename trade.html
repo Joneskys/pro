@@ -2,55 +2,62 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Trade Simulator</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Calculator</title>
+<meta name="viewport" content="width=device-width">
 <style>
-body{background:#0f172a;color:white;font-family:system-ui}
-.box{max-width:520px;margin:40px auto;background:#020617;padding:20px;border-radius:16px;border:1px solid #1f2937}
-input{width:100%;padding:8px;margin:6px 0;background:#0f172a;color:white;border:1px solid #1f2937;border-radius:8px}
-.row{display:flex;justify-content:space-between;margin:6px 0}
-.green{color:#22c55e}.red{color:#ef4444}
+body{background:#050b1a;color:#eaf2ff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh}
+.box{background:#071631;padding:30px;border-radius:20px;width:380px;box-shadow:0 0 60px #000}
+input{width:100%;padding:10px;margin:6px 0;background:#0c1c3a;border:1px solid #203a6d;color:white;border-radius:12px}
+button{padding:10px;width:100%;margin-top:10px;background:#133061;color:white;border:0;border-radius:12px}
+.ratio{font-size:28px;font-weight:bold}
+.green{color:#00e676}
+.red{color:#ff5252}
 </style>
 </head>
 <body>
 <div class="box">
-<h2 id="title"></h2>
-<label>Entry</label><input id="entry">
-<label>Stop Loss</label><input id="sl">
-<label>Target</label><input id="target">
+<h2 id="stock"></h2>
+
+<label>Buy</label><input id="entry">
+<label>SL Sell</label><input id="sl">
+<label>Target Sell</label><input id="tgt">
+
 <label>Quantity</label><input id="qty" oninput="syncBudget()">
-<label>Budget (₹)</label><input id="budget" oninput="syncQty()">
+<label>Budget</label><input id="budget" oninput="syncQty()">
+
 <button onclick="calc()">Calculate</button>
+
 <div id="out"></div>
 </div>
 
 <script>
-const p=new URLSearchParams(location.search);
-entry.value=p.get("entry");
-sl.value=p.get("sl");
-target.value=p.get("target");
-title.textContent=p.get("stock");
+const q=new URLSearchParams(location.search);
+stock.innerText=q.get("stock");
+entry.value=q.get("entry");
+sl.value=q.get("sl");
+tgt.value=q.get("target");
 
-function syncBudget(){budget.value=(qty.value*entry.value/5).toFixed(0);}
-function syncQty(){qty.value=Math.floor((budget.value*5)/entry.value)||0;}
+const r2=x=>Math.round(x*20)/20;
 
-function charges(buy,sell,qty){
-  let buyVal=buy*qty,sellVal=sell*qty,turn=buyVal+sellVal;
-  let bro=Math.min(20,buyVal*0.0005)+Math.min(20,sellVal*0.0005);
-  let stt=sellVal*0.00025;
-  let exch=turn*0.0000297;
-  let sebi=turn*0.000001;
-  let gst=0.18*(bro+exch+sebi);
-  return bro+stt+exch+sebi+gst;
+function syncQty(){
+ if(!budget.value||!entry.value)return;
+ qty.value=Math.floor(budget.value/entry.value);
+}
+function syncBudget(){
+ if(!qty.value||!entry.value)return;
+ budget.value=Math.round(qty.value*entry.value);
 }
 
 function calc(){
-  let q=+qty.value,b=+entry.value,slv=+sl.value,t=+target.value;
-  let pnlSL=(slv-b)*q - charges(b,slv,q);
-  let pnlTG=(t-b)*q - charges(b,t,q);
-  out.innerHTML=`
-  <div class="row red">SL Hit P&L: ₹${pnlSL.toFixed(2)}</div>
-  <div class="row green">Target Hit P&L: ₹${pnlTG.toFixed(2)}</div>`;
+ let e=+entry.value,slv=+sl.value,tv=+tgt.value,q=+qty.value;
+ let loss=(slv-e)*q;
+ let profit=(tv-e)*q;
+ let rr=(profit/Math.abs(loss)).toFixed(2);
+
+ out.innerHTML=`
+ <p class="red">SL Hit P/L: ₹${loss.toFixed(2)}</p>
+ <p class="green">Target Hit P/L: ₹${profit.toFixed(2)}</p>
+ <div class="ratio ${profit>Math.abs(loss)?'green':'red'}">R:R ${rr}</div>`;
 }
 </script>
 </body>
