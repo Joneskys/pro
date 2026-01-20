@@ -2,186 +2,150 @@
 <html>
 <head>
 <meta charset="UTF-8" />
-<title>Trading Dashboard</title>
+<title>Institutional Trading Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{margin:0;background:#050b1c;color:#fff;font-family:Arial}
-header{padding:15px}
-.cards{display:flex;gap:12px}
-.card{flex:1;background:#0c1733;padding:14px;border-radius:14px;text-align:center;font-size:18px}
-.controls{display:flex;gap:10px;flex-wrap:wrap;padding:10px}
-input,button,select{background:#0e1c38;color:white;border:1px solid #233;padding:6px 10px;border-radius:8px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{padding:8px;border-bottom:1px solid #1a2444;text-align:center}
-th{position:sticky;top:0;background:#050b1c}
-.buy{background:#052814}
-.sell{background:#2a0606}
+body {margin:0;background:#050b1a;color:#fff;font-family:Inter,system-ui;}
+header {padding:15px;font-size:20px;font-weight:700;}
+.controls {display:flex;flex-wrap:wrap;gap:8px;padding:10px;}
+input,button,select {background:#0b1832;border:1px solid #1f2f55;color:#fff;padding:8px;border-radius:8px}
+table {width:100%;border-collapse:collapse;font-size:14px;}
+th {position:sticky;top:0;background:#081328}
+td,th {padding:8px;border-bottom:1px solid #142042;text-align:center}
+.buy {background:#05220f}
+.sell {background:#2a0505}
+.hold {background:#050b1a}
+.green{color:#00ff7f}
+.red{color:#ff4d4d}
+.orange{color:orange}
+.small{font-size:11px;opacity:0.7}
+.card {background:#071631;padding:15px;border-radius:15px;margin:10px;display:flex;justify-content:space-between}
+.alert {position:fixed;right:10px;top:10px;background:#111;padding:10px;border-left:5px solid green;margin-bottom:10px}
 </style>
 </head>
-
 <body>
 
-<header>
-  <div class="cards">
-    <div class="card">Gold<br><span id="gold">₹--</span></div>
-    <div class="card">Silver<br><span id="silver">₹--</span></div>
-  </div>
-</header>
+<header>📊 Institutional Trading Dashboard</header>
+
+<div class="card">
+  <div>Gold: ₹<span id="gold">--</span></div>
+  <div>Silver: ₹<span id="silver">--</span></div>
+</div>
 
 <div class="controls">
-  <input id="search" placeholder="Search">
+  <input id="search" placeholder="Search stock">
   <button onclick="setFilter('BUY')">Only Buy</button>
   <button onclick="setFilter('SELL')">Only Sell</button>
   <button onclick="setFilter('ALL')">All</button>
 
   <select onchange="setSort(this.value)">
     <option value="">Sort</option>
-    <option value="volume">Volume High → Low</option>
-    <option value="rsi">RSI High → Low</option>
     <option value="price">Price High → Low</option>
+    <option value="rsi">RSI High → Low</option>
+    <option value="volume">Volume High → Low</option>
   </select>
 
   <input id="newStock" placeholder="Add stock (INFY)">
   <button onclick="addStock()">Add</button>
 </div>
 
-<div style="padding:10px">Last refresh: <span id="time">--</span></div>
-
 <table>
 <thead>
 <tr>
-  <th>Stock</th>
-  <th>Price</th>
-  <th>RSI</th>
-  <th>Volume(L)</th>
-  <th>Signal</th>
-  <th>Entry</th>
-  <th>SL</th>
-  <th>Target</th>
-  <th>Trade</th>
+<th>Stock</th><th>Price</th><th>RSI</th><th>Vol(L)</th>
+<th>Signal</th><th>Entry</th><th>SL</th><th>Target</th><th>Trade</th>
 </tr>
 </thead>
-<tbody id="tbody"></tbody>
+<tbody id="body"></tbody>
 </table>
 
 <script>
 const worker = "https://red-tooth-e4f7.lovelyideas-in.workers.dev";
+let stocks = ["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
+let data={}, filter="ALL", sort="";
 
-let stocks = [
-"NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA",
-"BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH",
-"HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"
-];
+function round05(n){return Math.round(n*20)/20}
 
-let data = {}, filter="ALL", sort=null;
-
-function rand(min,max){return +(Math.random()*(max-min)+min).toFixed(2)}
-
-async function loadStock(sym){
+async function fetchStock(sym){
   try{
-    const res = await fetch(`${worker}/?symbol=${sym}`);
-    const json = await res.json();
+    const r=await fetch(`${worker}/stock?symbol=${sym}`);
+    const j=await r.json();
+    return j.price?j:null;
+  }catch{return null;}
+}
 
-    const price = json?.price || rand(100,500);
-    const vol = Math.floor(rand(50,400));
-    const rsi = rand(20,80);
-    const signal = rsi>60 ? "BUY" : rsi<40 ? "SELL" : "HOLD";
+function genMock(sym){
+  const price=round05(Math.random()*500+50);
+  return {price,rsi:Math.random()*100,vol:Math.floor(Math.random()*200),signal:price%2>1?"BUY":"SELL"}
+}
 
-    data[sym] = {
-      sym, price, vol, rsi, signal,
-      entry: price,
-      sl: price*0.98,
-      target: price*1.02
-    };
-  }catch{
-    data[sym] = {
-      sym,
-      price: rand(100,500),
-      vol: rand(50,400),
-      rsi: rand(20,80),
-      signal: "HOLD",
-      entry: 0, sl: 0, target: 0
-    };
+async function load(){
+  for(const s of stocks){
+    let d=await fetchStock(s);
+    if(!d) d=genMock(s);
+    data[s]=d;
   }
+  render();
 }
 
 function render(){
-  let arr = Object.values(data);
+  let rows=[];
+  for(const s of stocks){
+    let d=data[s]; if(!d)continue;
+    if(filter!=="ALL" && d.signal!==filter) continue;
+    rows.push({s,...d});
+  }
 
-  if(filter!=="ALL") arr = arr.filter(x=>x.signal===filter);
-  if(sort==="volume") arr.sort((a,b)=>b.vol-a.vol);
-  if(sort==="rsi") arr.sort((a,b)=>b.rsi-a.rsi);
-  if(sort==="price") arr.sort((a,b)=>b.price-a.price);
+  if(sort==="price") rows.sort((a,b)=>b.price-a.price);
+  if(sort==="rsi") rows.sort((a,b)=>b.rsi-a.rsi);
+  if(sort==="volume") rows.sort((a,b)=>b.vol-a.vol);
 
-  document.getElementById("tbody").innerHTML = arr.map(s => `
-    <tr class="${s.signal==="BUY"?"buy":s.signal==="SELL"?"sell":""}">
-      <td><b>${s.sym}</b></td>
-      <td>${s.price.toFixed(2)}</td>
-      <td>${s.rsi.toFixed(1)}</td>
-      <td>${s.vol}</td>
-      <td>${s.signal}</td>
-      <td>${s.entry.toFixed(2)}</td>
-      <td>${s.sl.toFixed(2)}</td>
-      <td>${s.target.toFixed(2)}</td>
-      <td><button onclick="openTrade('${s.sym}')">Trade</button></td>
-    </tr>
-  `).join("");
+  const html=rows.map(r=>`
+    <tr class="${r.signal.toLowerCase()}">
+      <td><b>${r.s}</b></td>
+      <td>${r.price.toFixed(2)}</td>
+      <td>${r.rsi.toFixed(1)}</td>
+      <td>${r.vol}</td>
+      <td class="${r.signal==="BUY"?"green":"red"}">${r.signal}</td>
+      <td>${r.price.toFixed(2)}</td>
+      <td>${round05(r.price*0.98).toFixed(2)}</td>
+      <td>${round05(r.price*1.02).toFixed(2)}</td>
+      <td><button onclick="trade('${r.s}',${r.price})">Trade</button></td>
+    </tr>`).join("");
+  document.getElementById("body").innerHTML=html;
 }
 
-function openTrade(sym){
-  const s = data[sym];
-  const html = `
-    <html><body style="background:black;color:white;font-family:Arial;padding:20px">
-    <h2>${sym}</h2>
-    Entry: ${s.entry.toFixed(2)}<br>
-    SL: ${s.sl.toFixed(2)}<br>
-    Target: ${s.target.toFixed(2)}<br><br>
-    Qty: <input id="q" value="10"><br>
-    Budget: <input id="b"><br>
-    <div id="pl"></div>
-    <script>
-      const entry=${s.entry};
-      const sl=${s.sl};
-      const target=${s.target};
-      function calc(){
-        let qty=+q.value||0;
-        b.value=(qty*entry).toFixed(2);
-        pl.innerHTML="SL P/L: "+((sl-entry)*qty).toFixed(2)+"<br>Target P/L: "+((target-entry)*qty).toFixed(2);
-      }
-      q.oninput=calc;
-      b.oninput=()=>{q.value=(b.value/entry).toFixed(0);calc();}
-      calc();
-    </script>
-    </body></html>`;
-  const w = window.open();
-  w.document.write(html);
+function trade(sym,price){
+  const w=window.open();
+  w.document.write(`<h2>${sym}</h2>
+  <p>Entry: ₹${price}</p>
+  <p>Qty: <input id='q'></p>
+  <p>Budget: <input id='b'></p>
+  <script>
+  q.oninput=()=>b.value=(q.value*${price}).toFixed(2);
+  b.oninput=()=>q.value=Math.floor(b.value/${price});
+  </script>`);
 }
 
-function setFilter(f){filter=f;render()}
-function setSort(s){sort=s;render()}
-function addStock(){const s=newStock.value.toUpperCase(); if(s){stocks.push(s); loadStock(s)}}
-
-async function loadAll(){
-  for(let s of stocks) await loadStock(s);
-  render();
-  document.getElementById("time").innerText = new Date().toLocaleTimeString();
+function addStock(){
+  const v=document.getElementById("newStock").value.toUpperCase();
+  if(v&&!stocks.includes(v)){stocks.push(v);load();}
 }
+
+function setFilter(f){filter=f;render();}
+function setSort(s){sort=s;render();}
 
 async function loadMCX(){
-  for(const sym of ["GOLD","SILVER"]){
-    try{
-      const r = await fetch(`${worker}/mcx?symbol=${sym}`);
-      const j = await r.json();
-      const price = j?.chart?.result?.[0]?.meta?.regularMarketPrice;
-      document.getElementById(sym.toLowerCase()).innerText =
-        price ? `₹${price.toFixed(2)}` : "₹--";
-    }catch{}
-  }
+  try{
+    const g=await fetch(worker+"/mcx?symbol=GOLD").then(r=>r.json());
+    const s=await fetch(worker+"/mcx?symbol=SILVER").then(r=>r.json());
+    document.getElementById("gold").innerText=g?.chart?.result?.[0]?.meta?.regularMarketPrice?.toFixed(2)||"--";
+    document.getElementById("silver").innerText=s?.chart?.result?.[0]?.meta?.regularMarketPrice?.toFixed(2)||"--";
+  }catch{}
 }
 
-loadAll();
-loadMCX();
-setInterval(()=>{loadAll();loadMCX()},60000);
+load(); loadMCX(); setInterval(()=>{load();loadMCX()},60000);
 </script>
 </body>
 </html>
