@@ -3,31 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <title>Professional Trading Dashboard</title>
+
 <style>
 body {
-  background: radial-gradient(circle at top, #0c1a33, #020814);
-  font-family: system-ui;
-  color: white;
-  margin: 0;
+  margin:0;
+  font-family:system-ui;
+  background:radial-gradient(circle at top,#0b1f3a,#020814);
+  color:white;
 }
-header { padding:20px; font-size:26px; font-weight:bold; }
-.container { padding: 10px 20px; }
+header{padding:20px;font-size:26px;font-weight:bold}
+.container{padding:10px 20px}
 
-.cards { display:grid; grid-template-columns: repeat(4,1fr); gap:15px; margin-bottom:15px;}
-.card {
-  background:#081a36; border-radius:18px; padding:20px; text-align:center;
-  box-shadow: inset 0 0 20px rgba(0,0,0,.6);
-}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:10px}
+.card{background:#081a36;border-radius:18px;padding:20px;text-align:center;box-shadow:inset 0 0 20px black}
 
-.controls { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;}
-input,button,select {
-  background:#081f40; color:white; border:1px solid #1c3b6c;
-  padding:8px 12px; border-radius:12px;
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+input,select,button{
+  background:#071f40;color:white;border:1px solid #1d3f70;
+  padding:8px 12px;border-radius:12px;
 }
 
-table { width:100%; border-collapse:collapse; font-size:14px;}
-thead { background:#071831; position:sticky; top:0;}
-th,td { padding:8px; border-bottom:1px solid #0f2a52; text-align:center;}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead{background:#071831;position:sticky;top:0}
+th,td{padding:8px;border-bottom:1px solid #0f2a52;text-align:center}
 
 .stock-buy{color:#00ff9c;font-weight:bold}
 .stock-sell{color:#ff4d4d;font-weight:bold}
@@ -37,16 +35,17 @@ th,td { padding:8px; border-bottom:1px solid #0f2a52; text-align:center;}
 .trend-down{color:#ff4d4d}
 .trend-side{color:orange}
 
-.tradebtn{background:#0d3c78;border-radius:20px;padding:6px 14px;}
+.tradebtn{background:#0d3c78;border-radius:20px;padding:6px 14px}
 
-.popup {
- position:fixed; right:20px; bottom:20px;
- background:#081f40; padding:12px; border-radius:12px;
- box-shadow:0 0 20px black; margin-top:6px;
+.popup{
+  position:fixed;right:20px;bottom:20px;
+  background:#081f40;padding:10px;border-radius:12px;
+  box-shadow:0 0 20px black;margin-top:6px
 }
 </style>
 </head>
 <body>
+
 <header>📊 Professional Trading Dashboard</header>
 <div class="container">
 
@@ -72,6 +71,8 @@ th,td { padding:8px; border-bottom:1px solid #0f2a52; text-align:center;}
     <option value="vol_desc">Volume ↓</option>
     <option value="vol_asc">Volume ↑</option>
   </select>
+
+  <button onclick="takeScreenshot()">📸 Screenshot</button>
 </div>
 
 <div id="time"></div>
@@ -82,8 +83,7 @@ th,td { padding:8px; border-bottom:1px solid #0f2a52; text-align:center;}
 <th>Stock</th><th>Live</th><th>Today</th><th>1W</th><th>Vol(L)</th><th>1M</th>
 <th>RSI</th><th>EMA9</th><th>EMA21</th>
 <th>Support</th><th>Resistance</th>
-<th>Trend</th><th>Signal</th>
-<th>Trade</th><th>SL</th><th>Target</th>
+<th>Trend</th><th>Signal</th><th>Trade</th><th>SL</th><th>Target</th>
 </tr>
 </thead>
 <tbody id="body"></tbody>
@@ -97,31 +97,42 @@ const worker="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
 const stocks=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","JPPOWER","HDFCBANK","SBIN","MON100","RVNL","RBLBANK","TCS","KIMS"];
 let data={},filterSignal="ALL",sortBy="",lastSignal={};
 
+async function loadMCX(){
+  const map={gold:"GOLD",silver:"SILVER"};
+  for(const k in map){
+    try{
+      const r=await fetch(`${worker}/mcx?symbol=${map[k]}`);
+      const j=await r.json();
+      const p=j?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      document.getElementById(k).innerText=p?`₹${p}`:"₹--";
+    }catch{}
+  }
+}
+
 async function loadStock(sym){
   try{
-    const r = await fetch(`${worker}/candles?symbol=${sym}`);
-    const j = await r.json();
-    const c = j.candles;
-    if(!c || c.length < 30) return;
+    const r=await fetch(`${worker}/candles?symbol=${sym}`);
+    const j=await r.json();
+    const c=j.candles;
+    if(!c||c.length<30)return;
 
     const closes=c.map(x=>x.close);
     const highs=c.map(x=>x.high);
     const lows=c.map(x=>x.low);
     const vols=c.map(x=>x.volume);
 
-    const live = closes.at(-1);
-    const ema9 = ema(closes,9);
-    const ema21 = ema(closes,21);
-    const rsi = calcRSI(closes);
+    const live=closes.at(-1);
+    const ema9=ema(closes,9);
+    const ema21=ema(closes,21);
+    const rsi=calcRSI(closes);
 
-    const support = Math.min(...lows.slice(-10));
-    const resistance = Math.max(...highs.slice(-10));
+    const support=Math.min(...lows.slice(-10));
+    const resistance=Math.max(...highs.slice(-10));
 
-    const trend = ema9>ema21?"Uptrend":ema9<ema21?"Downtrend":"Sideways";
-    const signal = ema9>ema21 && rsi>55 ? "BUY" :
-                   ema9<ema21 && rsi<45 ? "SELL" : "HOLD";
+    const trend=ema9>ema21?"Uptrend":ema9<ema21?"Downtrend":"Sideways";
+    const signal=ema9>ema21&&rsi>55?"BUY":ema9<ema21&&rsi<45?"SELL":"HOLD";
 
-    if(lastSignal[sym] && lastSignal[sym]!==signal && (signal==="BUY"||signal==="SELL")){
+    if(lastSignal[sym]&&lastSignal[sym]!==signal&&(signal==="BUY"||signal==="SELL")){
       popup(sym+" "+signal);
       beep();
     }
@@ -136,11 +147,11 @@ async function loadStock(sym){
       sl: signal==="BUY"?support:resistance,
       target: signal==="BUY"?live+(live-support):live-(resistance-live)
     };
-  }catch(e){}
+  }catch{}
 }
 
 function render(){
-  let rows = Object.values(data)
+  let rows=Object.values(data)
     .filter(s=>filterSignal==="ALL"||s.signal===filterSignal)
     .filter(s=>s.sym.includes(search.value.toUpperCase()));
 
@@ -155,7 +166,7 @@ function render(){
     });
   }
 
-  body.innerHTML = rows.map(s=>`
+  body.innerHTML=rows.map(s=>`
   <tr>
     <td class="stock-${s.signal.toLowerCase()}">${s.sym}</td>
     <td>${s.live.toFixed(2)}</td>
@@ -182,14 +193,7 @@ function trade(sym){
 }
 
 function ema(arr,n){let k=2/(n+1),e=arr[0];for(let i=1;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;}
-function calcRSI(a){
-  let g=0,l=0;
-  for(let i=a.length-15;i<a.length-1;i++){
-    let d=a[i+1]-a[i];
-    if(d>0)g+=d; else l-=d;
-  }
-  return 100-(100/(1+(g/l)));
-}
+function calcRSI(a){let g=0,l=0;for(let i=a.length-15;i<a.length-1;i++){let d=a[i+1]-a[i];if(d>0)g+=d;else l-=d;}return 100-(100/(1+(g/l)));}
 
 function popup(msg){
   const d=document.createElement("div");
@@ -206,14 +210,26 @@ function beep(){
   setTimeout(()=>o.stop(),300);
 }
 
+function takeScreenshot(){
+  html2canvas(document.body).then(canvas=>{
+    const a=document.createElement("a");
+    a.download="dashboard.png";
+    a.href=canvas.toDataURL();
+    a.click();
+  });
+}
+
 async function refresh(){
   for(const s of stocks) await loadStock(s);
   render();
+  loadMCX();
   time.innerText="Last refresh: "+new Date().toLocaleTimeString();
 }
 
 refresh();
 setInterval(refresh,60000);
 </script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </body>
 </html>
