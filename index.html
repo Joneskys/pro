@@ -9,34 +9,37 @@
 <style>
 body {
   margin:0;
-  font-family: system-ui;
-  background: radial-gradient(circle at top,#0b1d3a,#000814);
+  font-family:system-ui;
+  background:radial-gradient(circle at top,#0b1d3a,#000814);
   color:#fff;
 }
 .container{padding:20px}
-h1{font-size:28px;margin-bottom:15px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px}
-.card{background:#081a35;padding:20px;border-radius:20px;text-align:center}
+h1{font-size:26px;margin-bottom:15px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:15px}
+.card{background:#081a35;padding:20px;border-radius:18px;text-align:center}
 .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 input,select,button{
   background:#0b254a;color:white;border:1px solid #123;
-  padding:10px 14px;border-radius:10px
+  padding:8px 12px;border-radius:10px
 }
-table{width:100%;border-collapse:collapse;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
 th{position:sticky;top:0;background:#081a35;padding:10px}
-td{padding:10px;border-bottom:1px solid #0a1c33}
+td{padding:8px;border-bottom:1px solid #0a1c33;text-align:center}
+.small{font-size:11px;color:#aaa}
 .buy{color:#00ff9c;font-weight:bold}
 .sell{color:#ff5252;font-weight:bold}
 .hold{color:white;font-weight:bold}
 .up{color:#00ff9c}
 .down{color:#ff5252}
 .side{color:orange}
-.small{font-size:11px;color:#aaa}
-.trade-btn{background:#0b254a;border:1px solid #123;padding:6px 10px;border-radius:8px;cursor:pointer}
+.trade-btn{background:#0b254a;border:1px solid #123;padding:5px 10px;border-radius:8px;cursor:pointer}
+.popup{
+  position:fixed;right:10px;top:10px;background:#081a35;padding:10px;
+  border-radius:12px;margin-bottom:5px;z-index:9999
+}
 </style>
 </head>
 <body>
-
 <div class="container">
 <h1>📊 Professional Trading Dashboard</h1>
 
@@ -48,7 +51,7 @@ td{padding:10px;border-bottom:1px solid #0a1c33}
 </div>
 
 <div class="controls">
-  <input id="search" placeholder="Search stock">
+  <input id="search" placeholder="Search stock" oninput="render()">
   <button onclick="setFilter('BUY')">Only Buy</button>
   <button onclick="setFilter('SELL')">Only Sell</button>
   <button onclick="setFilter('ALL')">All</button>
@@ -84,47 +87,50 @@ td{padding:10px;border-bottom:1px solid #0a1c33}
 <script>
 const worker="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
 const stocks=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","JPPOWER","HDFCBANK","SBIN","MON100","RVNL","RBLBANK","TCS","KIMS"];
-let store={},filter="ALL";
+
+let store={},filter="ALL",lastSignals={};
 
 function EMA(arr,n){let k=2/(n+1),e=arr[0];for(let i=1;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;}
 function RSI(arr){
-  let g=0,l=0;
+  let gain=0,loss=0;
   for(let i=1;i<arr.length;i++){
     let d=arr[i]-arr[i-1];
-    if(d>0)g+=d; else l-=d;
+    if(d>0)gain+=d; else loss-=d;
   }
-  let rs=g/(l||1);
+  let rs=gain/(loss||1);
   return 100-(100/(1+rs));
 }
 
 async function loadStock(sym){
   try{
-    let res=await fetch(worker+"/candles?symbol="+sym);
-    let json=await res.json();
-    let candles=json.candles || json;
-    if(!Array.isArray(candles)||candles.length<30)return;
+    const res=await fetch(worker+"/candles?symbol="+sym);
+    const data=await res.json();
+    const candles=data.candles || data;
 
-    let close=candles.map(x=>+x.close);
-    let high=candles.map(x=>+x.high);
-    let low=candles.map(x=>+x.low);
-    let vol=candles.map(x=>+x.volume||0);
+    if(!Array.isArray(candles) || candles.length<30) return;
 
-    let live=close.at(-1);
-    let e9=EMA(close.slice(-30),9);
-    let e21=EMA(close.slice(-30),21);
-    let rsi=RSI(close.slice(-15));
+    const close=candles.map(x=>+x.close);
+    const high=candles.map(x=>+x.high);
+    const low=candles.map(x=>+x.low);
+    const vol=candles.map(x=>+x.volume||0);
 
-    let support=Math.min(...low.slice(-10));
-    let resistance=Math.max(...high.slice(-10));
+    const live=close.at(-1);
+    const e9=EMA(close.slice(-30),9);
+    const e21=EMA(close.slice(-30),21);
+    const rsi=RSI(close.slice(-15));
 
-    let trend=e9>e21?"Uptrend":e9<e21?"Downtrend":"Sideways";
-    let signal=e9>e21&&rsi>55?"BUY":e9<e21&&rsi<45?"SELL":"HOLD";
+    const support=Math.min(...low.slice(-10));
+    const resistance=Math.max(...high.slice(-10));
 
-    let sl=signal==="BUY"?support:resistance;
-    let tgt=signal==="BUY"?live+(live-support):live-(resistance-live);
+    const trend=e9>e21?"Uptrend":e9<e21?"Downtrend":"Sideways";
+    const signal=e9>e21 && rsi>55?"BUY":e9<e21 && rsi<45?"SELL":"HOLD";
+
+    const sl=signal==="BUY"?support:resistance;
+    const tgt=signal==="BUY"?live+(live-support):live-(resistance-live);
 
     store[sym]={
-      sym,live:live.toFixed(2),
+      sym,
+      live:live.toFixed(2),
       today:`L:${low.at(-1).toFixed(1)} H:${high.at(-1).toFixed(1)}`,
       week:`L:${Math.min(...low.slice(-5)).toFixed(1)} H:${Math.max(...high.slice(-5)).toFixed(1)}`,
       month:`L:${Math.min(...low.slice(-22)).toFixed(1)} H:${Math.max(...high.slice(-22)).toFixed(1)}`,
@@ -138,6 +144,13 @@ async function loadStock(sym){
       sl:sl.toFixed(2),
       target:tgt.toFixed(2)
     };
+
+    if(lastSignals[sym] && lastSignals[sym]!==signal){
+      popup(`${sym}: ${signal}`);
+      playBeep();
+    }
+    lastSignals[sym]=signal;
+
   }catch(e){console.log(sym,e);}
 }
 
@@ -178,10 +191,29 @@ function render(){
 
 function setFilter(f){filter=f;render();}
 function openTrade(s,e,sl,t){window.open(`trade.html?stock=${s}&entry=${e}&sl=${sl}&target=${t}`);}
+
+function popup(msg){
+  let d=document.createElement("div");
+  d.className="popup";
+  d.innerText=msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),4000);
+}
+
+function playBeep(){
+  let ctx=new AudioContext();
+  let o=ctx.createOscillator();
+  o.connect(ctx.destination);
+  o.start();
+  setTimeout(()=>o.stop(),300);
+}
+
 function takeScreenshot(){
   html2canvas(document.body).then(c=>{
+    let now=new Date();
+    let name=now.toLocaleTimeString().replace(/:/g,"")+"_"+now.toLocaleDateString().replace(/\//g,"")+" _STOCKS.png";
     let a=document.createElement("a");
-    a.download="dashboard_"+Date.now()+".png";
+    a.download=name;
     a.href=c.toDataURL();
     a.click();
   });
