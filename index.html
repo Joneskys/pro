@@ -1,220 +1,227 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Professional Trading Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Professional Stock Dashboard</title>
+
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <style>
-body{margin:0;background:#050b1a;color:#e5e7eb;font-family:Segoe UI}
-.top{padding:12px;font-size:22px;font-weight:bold}
-.controls{display:flex;gap:8px;flex-wrap:wrap;padding:10px}
-input,select,button{background:#0b1d3a;color:white;border:1px solid #1f3b6a;padding:6px 10px;border-radius:10px}
+:root{
+  --bg:#0b1220; --panel:#020617; --border:#1f2937; --text:#e5e7eb;
+  --green:#22c55e; --red:#ef4444; --orange:#f59e0b; --muted:#94a3b8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#020617,#0b1220);color:var(--text);font-family:system-ui}
+header{position:sticky;top:0;z-index:20;background:#020617;border-bottom:1px solid var(--border);padding:10px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+input,select,button{background:#0f172a;color:#fff;border:1px solid var(--border);padding:7px 10px;border-radius:10px}
 button{cursor:pointer}
-.table-wrap{overflow:auto;height:70vh;border-top:1px solid #1f3b6a}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{padding:6px;border-bottom:1px solid #1f3b6a;text-align:center}
+.container{padding:10px}
+.small{font-size:11px;color:var(--muted)}
+
+.table-wrap{overflow:auto;max-height:75vh;border-radius:14px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1300px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:center;white-space:nowrap}
 th{position:sticky;top:0;background:#020617}
-.green{color:#22c55e;font-weight:bold}
-.red{color:#ef4444;font-weight:bold}
-.orange{color:#f59e0b;font-weight:bold}
-.bold{font-weight:bold}
-.small{font-size:11px;color:#9ca3af}
-.popup{position:fixed;bottom:20px;right:20px;background:#020617;padding:10px;border:1px solid #1f3b6a;border-radius:10px;display:none}
+tr:nth-child(even){background:#0f172a}
+
+.green{color:var(--green);font-weight:700}
+.red{color:var(--red);font-weight:700}
+.orange{color:var(--orange);font-weight:700}
+.bold{font-weight:800}
+
+.popup{position:fixed;bottom:20px;right:20px;background:#020617;border:1px solid var(--border);border-radius:16px;padding:12px;display:none;z-index:50}
+.tradeBtn{padding:4px 10px;border-radius:999px;background:#111827;border:1px solid var(--border)}
 </style>
 </head>
 <body>
 
-<div class="top">📊 Professional Trading Dashboard</div>
+<header>
+  <div class="controls">
+    <input type="date" id="date" />
+    <button onclick="render()">Submit</button>
+    <input id="search" placeholder="Search stock..." oninput="render()" />
+    <button onclick="filter='buy';render()">Only Buy</button>
+    <button onclick="filter='sell';render()">Only Sell</button>
+    <button onclick="filter='all';render()">All</button>
 
-<div class="controls">
-<input type="date" id="date">
-<button onclick="render()">Submit</button>
-<input id="search" placeholder="Search stock..." oninput="render()">
-<button onclick="filter='buy';render()">Only Buy</button>
-<button onclick="filter='sell';render()">Only Sell</button>
-<button onclick="filter='all';render()">All</button>
+    <select id="sort" onchange="render()">
+      <option value="">Sort</option>
+      <option value="volDesc">Volume ↓</option>
+      <option value="volAsc">Volume ↑</option>
+      <option value="rsiDesc">RSI ↓</option>
+      <option value="rsiAsc">RSI ↑</option>
+      <option value="priceDesc">Price ↓</option>
+      <option value="priceAsc">Price ↑</option>
+      <option value="chgDesc">%Change ↓</option>
+      <option value="chgAsc">%Change ↑</option>
+    </select>
 
-<select id="sort" onchange="render()">
-<option value="">Sort</option>
-<option value="volDesc">Volume ↓</option>
-<option value="volAsc">Volume ↑</option>
-<option value="rsiDesc">RSI ↓</option>
-<option value="priceDesc">Price ↓</option>
-</select>
+    <input id="newStock" placeholder="Add stock (INFY)" />
+    <button onclick="addStock()">Add</button>
+    <button onclick="muted=!muted">Mute</button>
+    <button onclick="screenshot()">📸 Screenshot</button>
+  </div>
+  <div class="small">Last refresh: <span id="time"></span></div>
+</header>
 
-<input id="newStock" placeholder="Add stock (INFY)">
-<button onclick="addStock()">Add</button>
-<button onclick="takeScreenshot()">📸 Screenshot</button>
-<button onclick="muted=!muted">Mute</button>
-</div>
-
-<div class="small" style="padding:0 10px">Last refresh: <span id="time"></span></div>
-
-<div class="table-wrap">
-<table>
-<thead>
-<tr>
-<th>Stock</th><th>Live</th><th>Today</th><th>1W</th><th>Vol(L)</th><th>1M</th>
-<th>RSI</th><th>EMA9</th><th>EMA21</th><th>Support</th><th>Resistance</th>
-<th>Trend</th><th>Signal</th><th>Trade</th><th>SL</th><th>Target</th>
-</tr>
-</thead>
-<tbody id="tbody"></tbody>
-</table>
+<div class="container">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Stock</th><th>Live</th><th>Today</th><th>Vol(L)</th><th>1W</th><th>1M</th>
+          <th>RSI</th><th>EMA9</th><th>EMA21</th><th>Support</th><th>Resistance</th>
+          <th>Trend</th><th>Signal</th><th>Trade</th><th>SL</th><th>Target</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
 </div>
 
 <div class="popup" id="popup">
-<div id="popupText"></div>
-<button onclick="popup.style.display='none'">Close</button>
+  <div id="popupText"></div>
+  <button onclick="popup.style.display='none'">Close</button>
 </div>
 
 <script>
 const WORKER="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
-const STOCKS=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
-let DB={},filter="all",muted=false,lastSignals={};
+const STOCK_API=s=>`${WORKER}?symbol=${s}`;
+let STOCKS=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
+let DB={},filter="all",muted=false,lastSignals={},queue=[];
+
+const EMA=(a,p)=>{let k=2/(p+1),e=a[0];a.forEach(v=>e=v*k+e*(1-k));return e;}
+const RSI=a=>{let g=0,l=0;for(let i=1;i<=14;i++){let d=a[i]-a[i-1];d>0?g+=d:l-=d;}let rs=g/(l||1);return 100-(100/(1+rs));}
+const signal=(e9,e21,r)=>e9>e21&&r>60?"BUY":e9<e21&&r<40?"SELL":"HOLD";
+
+function parseWorker(j){
+ try{
+  let r=j.chart.result[0],q=r.indicators.quote[0];
+  return r.timestamp.map((t,i)=>({
+    date:new Date(t*1000).toISOString().slice(0,10),
+    open:q.open[i],high:q.high[i],low:q.low[i],close:q.close[i],volume:q.volume?.[i]||0
+  })).filter(x=>x.close);
+ }catch{return []}
+}
+
+async function loadStock(s){
+ try{DB[s]=parseWorker(await (await fetch(STOCK_API(s))).json());}
+ catch{DB[s]=[]}
+}
 
 function addStock(){
-let s=newStock.value.trim().toUpperCase();
-if(s&&!STOCKS.includes(s)){STOCKS.push(s);loadStock(s);}
-newStock.value="";
+ let s=newStock.value.trim().toUpperCase();
+ if(s&&!STOCKS.includes(s)){STOCKS.push(s);loadStock(s);}
+ newStock.value="";
 }
-
-async function loadStock(sym){
-try{
-let r=await fetch(`${WORKER}?symbol=${sym}`);
-let j=await r.json();
-DB[sym]=j.map(x=>({
-date:new Date(x.t*1000),
-open:+x.o,high:+x.h,low:+x.l,close:+x.c,volume:+x.v
-}));
-}catch{
-DB[sym]=mock();
-}
-}
-
-function mock(){
-let a=[],p=100;
-for(let i=40;i>=0;i--){
-let d=new Date();d.setDate(d.getDate()-i);
-let o=p,c=o+(Math.random()-0.5)*4;
-a.push({date:d,open:o,high:o+2,low:o-2,close:c,volume:500000});
-p=c;
-}
-return a;
-}
-
-const EMA=(arr,p)=>{let k=2/(p+1),e=arr[0];for(let v of arr)e=v*k+e*(1-k);return e;}
-const RSI=a=>{
-let g=0,l=0;
-for(let i=1;i<15;i++){
-let d=a[i]-a[i-1];
-d>0?g+=d:l-=d;
-}
-let rs=g/(l||1);
-return 100-(100/(1+rs));
-};
-
-function signal(e9,e21,r){return e9>e21&&r>60?"BUY":e9<e21&&r<40?"SELL":"HOLD"}
 
 function alertSignal(s,sig){
-if(sig==="HOLD"||lastSignals[s]===sig)return;
-lastSignals[s]=sig;
-popupText.innerHTML=`<b class="${sig==='BUY'?'green':'red'}">${s} ${sig}</b>`;
-popup.style.display='block';
-if(!muted){
-let a=new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-a.loop=true;a.play();
-setTimeout(()=>{a.pause();a.currentTime=0},3000);
+ if(sig==="HOLD"||lastSignals[s]===sig)return;
+ lastSignals[s]=sig;
+ queue.push({s,sig});
+ if(popup.style.display==="none")showNext();
 }
+
+function showNext(){
+ if(queue.length===0)return;
+ let {s,sig}=queue.shift();
+ popupText.innerHTML=`<b class="${sig==='BUY'?'green':'red'}">${s} ${sig}</b>`;
+ popup.style.display='block';
+ if(!muted){
+  let a=new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+  a.loop=true;a.play();setTimeout(()=>{a.pause();},3000);
+ }
 }
+
+popup.onclick=()=>{popup.style.display='none';showNext()}
+
+function round05(v){return Math.round(v*20)/20;}
 
 function render(){
-time.textContent=new Date().toLocaleTimeString();
-let q=search.value.toLowerCase();
-let rows=[];
-let selected=date.value;
+ time.textContent=new Date().toLocaleTimeString();
+ let q=search.value.toLowerCase();
+ let selected=date.value;
+ let rows=[];
 
-for(let s of STOCKS){
-let d=DB[s]; if(!d||d.length<30)continue;
-if(selected)d=d.filter(x=>x.date.toISOString().slice(0,10)<=selected);
-if(d.length<30)continue;
-if(q&&!s.toLowerCase().includes(q))continue;
+ for(let s of STOCKS){
+  let d=DB[s]; if(!d||d.length<30)continue;
+  if(selected)d=d.filter(x=>x.date<=selected);
+  if(d.length<30)continue;
+  if(q&&!s.toLowerCase().includes(q))continue;
 
-let t=d.at(-1);
-let cl=d.map(x=>x.close);
-let e9=EMA(cl.slice(-9),9);
-let e21=EMA(cl.slice(-21),21);
-let rsi=RSI(cl.slice(-15));
-let w=d.slice(-5),m=d.slice(-21);
-let sup=Math.min(...m.map(x=>x.low));
-let res=Math.max(...m.map(x=>x.high));
-let sig=signal(e9,e21,rsi);
-if(filter==='buy'&&sig!=='BUY')continue;
-if(filter==='sell'&&sig!=='SELL')continue;
+  let t=d.at(-1),cl=d.map(x=>x.close);
+  let e9=EMA(cl.slice(-9),9),e21=EMA(cl.slice(-21),21),rsi=RSI(cl.slice(-15));
+  let m=d.slice(-21),w=d.slice(-6);
+  let sup=Math.min(...m.map(x=>x.low)),res=Math.max(...m.map(x=>x.high));
+  let sig=signal(e9,e21,rsi);
+  if(filter==='buy'&&sig!=='BUY')continue;
+  if(filter==='sell'&&sig!=='SELL')continue;
 
-let entry=t.close;
-let sl=sig==='BUY'?entry*0.98:entry*1.02;
-let tgt=sig==='BUY'?entry*1.03:entry*0.97;
-let volL=Math.round(t.volume/100000);
+  let entry=t.close;
+  let sl=sig==='BUY'?entry*0.98:entry*1.02;
+  let tgt=sig==='BUY'?entry*1.03:entry*0.97;
+  let volL=Math.round(t.volume/100000);
+  let chg=((entry-d.at(-2).close)/d.at(-2).close)*100;
 
-rows.push({s,t,w,m,rsi,e9,e21,sup,res,sig,entry,sl,tgt,volL});
+  rows.push({s,t,w,m,rsi,e9,e21,sup,res,sig,entry,sl,tgt,volL,chg});
+ }
+
+ let sortv=sort.value;
+ if(sortv==="volDesc")rows.sort((a,b)=>b.volL-a.volL);
+ if(sortv==="volAsc")rows.sort((a,b)=>a.volL-b.volL);
+ if(sortv==="rsiDesc")rows.sort((a,b)=>b.rsi-a.rsi);
+ if(sortv==="rsiAsc")rows.sort((a,b)=>a.rsi-b.rsi);
+ if(sortv==="priceDesc")rows.sort((a,b)=>b.entry-a.entry);
+ if(sortv==="priceAsc")rows.sort((a,b)=>a.entry-b.entry);
+ if(sortv==="chgDesc")rows.sort((a,b)=>b.chg-a.chg);
+ if(sortv==="chgAsc")rows.sort((a,b)=>a.chg-b.chg);
+
+ tbody.innerHTML=rows.map(r=>{
+  alertSignal(r.s,r.sig);
+  return `<tr>
+   <td class="bold ${r.sig==='BUY'?'green':r.sig==='SELL'?'red':''}">${r.s}</td>
+   <td>${r.entry.toFixed(2)}</td>
+   <td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)} (${r.chg.toFixed(2)}%)</td>
+   <td>${r.volL}</td>
+   <td class="small">L:${Math.min(...r.w.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.w.map(x=>x.high)).toFixed(1)}</td>
+   <td class="small">L:${Math.min(...r.m.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.m.map(x=>x.high)).toFixed(1)}</td>
+   <td>${r.rsi.toFixed(1)}</td>
+   <td>${r.e9.toFixed(2)}</td>
+   <td>${r.e21.toFixed(2)}</td>
+   <td>${r.sup.toFixed(2)}</td>
+   <td>${r.res.toFixed(2)}</td>
+   <td>${r.e9>r.e21?'Uptrend':'Downtrend'}</td>
+   <td class="${r.sig==='BUY'?'green':r.sig==='SELL'?'red':'orange'}">${r.sig}</td>
+   <td><button onclick="openTrade('${r.s}',${round05(r.entry)},${round05(r.sl)},${round05(r.tgt)})">Trade</button></td>
+   <td>${round05(r.sl).toFixed(2)}</td>
+   <td>${round05(r.tgt).toFixed(2)}</td>
+  </tr>`;
+ }).join("");
 }
 
-let sortv=sort.value;
-if(sortv==="volDesc")rows.sort((a,b)=>b.volL-a.volL);
-if(sortv==="volAsc")rows.sort((a,b)=>a.volL-b.volL);
-if(sortv==="rsiDesc")rows.sort((a,b)=>b.rsi-a.rsi);
-if(sortv==="priceDesc")rows.sort((a,b)=>b.entry-a.entry);
-
-let html="";
-for(let r of rows){
-alertSignal(r.s,r.sig);
-html+=`<tr>
-<td class="bold ${r.sig==='BUY'?'green':r.sig==='SELL'?'red':''}">${r.s}</td>
-<td>${r.entry.toFixed(2)}</td>
-<td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)}</td>
-<td class="small">L:${Math.min(...r.w.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.w.map(x=>x.high)).toFixed(1)}</td>
-<td>${r.volL}</td>
-<td class="small">L:${Math.min(...r.m.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.m.map(x=>x.high)).toFixed(1)}</td>
-<td>${r.rsi.toFixed(1)}</td>
-<td>${r.e9.toFixed(2)}</td>
-<td>${r.e21.toFixed(2)}</td>
-<td>${r.sup.toFixed(2)}</td>
-<td>${r.res.toFixed(2)}</td>
-<td class="${r.e9>r.e21?'green':'red'}">${r.e9>r.e21?'Uptrend':'Downtrend'}</td>
-<td class="${r.sig==='BUY'?'green':r.sig==='SELL'?'red':'orange'}">${r.sig}</td>
-<td><button onclick="openTrade('${r.s}',${r.entry},${r.sl},${r.tgt})">Trade</button></td>
-<td>${r.sl.toFixed(2)}</td>
-<td>${r.tgt.toFixed(2)}</td>
-</tr>`;
-}
-tbody.innerHTML=html;
+function screenshot(){
+ html2canvas(document.body).then(c=>{
+  let d=new Date();
+  let name=d.toLocaleDateString('en-GB').replaceAll('/','')+"_"+d.getHours().toString().padStart(2,'0')+d.getMinutes().toString().padStart(2,'0')+"_STOCKS.png";
+  let a=document.createElement("a");
+  a.download=name;
+  a.href=c.toDataURL();
+  a.click();
+ });
 }
 
-function openTrade(stock,e,sl,t){
-let url=`trade.html?stock=${stock}&entry=${e}&sl=${sl}&target=${t}`;
-window.open(url,"_blank");
-}
-
-function takeScreenshot(){
-html2canvas(document.body).then(c=>{
-let d=new Date();
-let name=d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true}).replace(":","")
-+"_"+d.toLocaleDateString('en-GB').replaceAll("/","")
-+"_STOCKS.png";
-let a=document.createElement("a");
-a.download=name;
-a.href=c.toDataURL();
-a.click();
-});
+function openTrade(s,e,sl,t){
+ let url=`trade.html?stock=${s}&entry=${e}&sl=${sl}&target=${t}`;
+ window.open(url,'_blank');
 }
 
 async function init(){
-for(let s of STOCKS) await loadStock(s);
-render();
-setInterval(()=>{render();},60000);
+ for(let s of STOCKS) await loadStock(s);
+ render();
+ setInterval(render,60000);
 }
 init();
 </script>
