@@ -110,7 +110,7 @@ th:first-child, td:first-child {
 <script>
 const WORKER="https://red-tooth-e4f7.lovelyideas-in.workers.dev";
 const STOCK_API=s=>`${WORKER}?symbol=${s}`;
-let STOCKS=["NIFTYBEES","TATAGOLD","TATSILVER","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
+let STOCKS=["NIFTYBEES","TATAGOLD","TATSILV","HINDCOPPER","BSE","SAGILITY","CUPID","IDEA","BHARATCOAL","JPPOWER","HDFCBANK","SBIN","MON100","MEESHO","RVNL","ORIENTTECH","HARAFIN","RBLBANK","IRIS","GREAVESCOT","NTPCGREEN","TCS","KIMS"];
 let DB={},filter="all",muted=false,lastSignals={},queue=[];
 
 const EMA=(a,p)=>{let k=2/(p+1),e=a[0];a.forEach(v=>e=v*k+e*(1-k));return e;}
