@@ -2,43 +2,69 @@
 <html>
 <head>
 <title>Trade</title>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
 <style>
-body{background:#050b1a;color:white;font-family:Segoe UI;padding:20px}
-input{padding:6px;border-radius:6px;background:#0b1d3a;color:white;border:1px solid #1f3b6a}
+body{background:#0b1220;color:white;font-family:sans-serif;padding:20px}
+input{background:#0f172a;color:white;border:1px solid #1f2937;padding:6px;border-radius:6px}
+.green{color:#22c55e;font-weight:bold}
+.red{color:#ef4444;font-weight:bold}
 .big{font-size:22px;font-weight:bold}
-.green{color:#22c55e}
-.red{color:#ef4444}
 </style>
 </head>
 <body>
 
 <h2 id="title"></h2>
-<div>Entry: ₹<span id="entry"></span></div>
-<div>SL: ₹<span id="sl"></span></div>
-<div>Target: ₹<span id="target"></span></div><br>
 
+Buy: <input id="buy"><br><br>
+SL: <input id="sl"><br><br>
+Target: <input id="target"><br><br>
 Qty: <input id="qty"><br><br>
 Budget: <input id="budget"><br><br>
 
-<div id="result"></div>
+<div id="charges"></div>
+<div id="pl"></div>
+<div id="ratio" class="big"></div>
 
 <script>
 const p=new URLSearchParams(location.search);
-let entry=+p.get("entry");
-let sl=+p.get("sl");
-let tgt=+p.get("target");
 let stock=p.get("stock");
-
 title.innerText=stock;
-entrySpan.innerText=entry.toFixed(2);
-slSpan.innerText=sl.toFixed(2);
-targetSpan.innerText=tgt.toFixed(2);
 
-qty.oninput=()=>budget.value=(qty.value*entry).toFixed(2);
-budget.oninput=()=>qty.value=Math.floor(budget.value/entry);
+let buyv=+p.get("entry"),slv=+p.get("sl"),tgtv=+p.get("target");
 
+buy.value=buyv.toFixed(2);
+sl.value=slv.toFixed(2);
+target.value=tgtv.toFixed(2);
+
+function round05(v){return Math.round(v*20)/20;}
+
+function calc(){
+ let b=+buy.value, s=+sl.value, t=+target.value;
+ let q=+qty.value || Math.floor((budget.value||0)/(b));
+ qty.value=q;
+ budget.value=(q*b).toFixed(2);
+
+ let turnover=q*b*2;
+ let brokerage=Math.min(20,turnover*0.0005);
+ let stt=(q*t)*0.00025;
+ let exch=turnover*0.0000297;
+ let sebi=turnover*0.000001;
+ let gst=0.18*(brokerage+exch+sebi);
+ let total=brokerage+stt+exch+sebi+gst;
+
+ charges.innerHTML=`Charges: ₹${total.toFixed(2)}<br>
+ Brokerage: ${brokerage.toFixed(2)}, STT: ${stt.toFixed(2)}, Exchange: ${exch.toFixed(2)}, SEBI: ${sebi.toFixed(2)}, GST: ${gst.toFixed(2)}`;
+
+ let profit=(t-b)*q-total;
+ let loss=(b-s)*q+total;
+ pl.innerHTML=`<div class="green">Target P/L: ₹${profit.toFixed(2)}</div>
+               <div class="red">SL P/L: -₹${loss.toFixed(2)}</div>`;
+
+ let rr=(profit/loss).toFixed(2);
+ ratio.innerHTML=`Risk:Reward = <span class="green">${rr}</span>`;
+}
+
+["buy","sl","target","qty","budget"].forEach(id=>document.getElementById(id).oninput=calc);
+calc();
 </script>
 </body>
 </html>
