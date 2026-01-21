@@ -1,51 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
+<title>Trade</title>
 <meta charset="UTF-8">
-<title>Trade Calculator</title>
+<meta name="viewport" content="width=device-width">
 <style>
-body{background:#000814;color:white;font-family:system-ui}
-.card{max-width:500px;margin:40px auto;background:#081a35;padding:20px;border-radius:20px}
-input,button{width:100%;padding:10px;margin:6px 0;background:#0b254a;border:1px solid #123;color:white;border-radius:10px}
-.profit{color:#00ff9c;font-size:22px}
-.loss{color:#ff5252;font-size:22px}
+body{background:#050b1a;color:white;font-family:Segoe UI;padding:20px}
+input{padding:6px;border-radius:6px;background:#0b1d3a;color:white;border:1px solid #1f3b6a}
+.big{font-size:22px;font-weight:bold}
+.green{color:#22c55e}
+.red{color:#ef4444}
 </style>
 </head>
 <body>
-<div class="card">
+
 <h2 id="title"></h2>
-<input id="entry">
-<input id="sl">
-<input id="target">
-<input id="qty" placeholder="Quantity">
-<input id="budget" placeholder="Budget">
-<button onclick="calc()">Calculate</button>
-<div id="out"></div>
-</div>
+<div>Entry: ₹<span id="entry"></span></div>
+<div>SL: ₹<span id="sl"></span></div>
+<div>Target: ₹<span id="target"></span></div><br>
+
+Qty: <input id="qty"><br><br>
+Budget: <input id="budget"><br><br>
+
+<div id="result"></div>
 
 <script>
 const p=new URLSearchParams(location.search);
-entry.value=p.get("entry");
-sl.value=p.get("sl");
-target.value=p.get("target");
-title.innerText=p.get("stock");
+let entry=+p.get("entry");
+let sl=+p.get("sl");
+let tgt=+p.get("target");
+let stock=p.get("stock");
 
-function round(v){return (Math.round(v*20)/20).toFixed(2)}
+title.innerText=stock;
+entrySpan.innerText=entry.toFixed(2);
+slSpan.innerText=sl.toFixed(2);
+targetSpan.innerText=tgt.toFixed(2);
 
-function calc(){
-  let e=+entry.value,s=+sl.value,t=+target.value,q=+qty.value,b=+budget.value;
-  if(b&&!q)q=Math.floor((b*5)/e);
-  if(q&&!b)b=(q*e)/5;
-  qty.value=q;budget.value=round(b);
+qty.oninput=()=>budget.value=(qty.value*entry).toFixed(2);
+budget.oninput=()=>qty.value=Math.floor(budget.value/entry);
 
-  let pnlSL=(s-e)*q;
-  let pnlT=(t-e)*q;
-
-  out.innerHTML=`
-  <div class="loss">SL P/L: ₹${round(pnlSL)}</div>
-  <div class="profit">Target P/L: ₹${round(pnlT)}</div>
-  <div>Risk:Reward = ${(Math.abs(pnlSL)/Math.abs(pnlT)).toFixed(2)}</div>`;
-}
 </script>
 </body>
 </html>
