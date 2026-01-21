@@ -21,10 +21,10 @@ button{cursor:pointer}
 .container{padding:10px}
 .small{font-size:11px;color:var(--muted)}
 
-.table-wrap{overflow:auto;max-height:75vh;border-radius:14px;border:1px solid var(--border)}
-table{width:100%;border-collapse:collapse;font-size:12px;min-width:1300px}
+.table-wrap{border-radius:14px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1400px}
 th,td{border:1px solid var(--border);padding:6px 8px;text-align:center;white-space:nowrap}
-th{position:sticky;top:0;background:#020617}
+th{position:sticky;top:60px;background:#020617}
 tr:nth-child(even){background:#0f172a}
 
 .green{color:var(--green);font-weight:700}
@@ -72,9 +72,22 @@ tr:nth-child(even){background:#0f172a}
     <table>
       <thead>
         <tr>
-          <th>Stock</th><th>Live</th><th>Today</th><th>Vol(L)</th><th>1W</th><th>1M</th>
-          <th>RSI</th><th>EMA9</th><th>EMA21</th><th>Support</th><th>Resistance</th>
-          <th>Trend</th><th>Signal</th><th>Trade</th><th>SL</th><th>Target</th>
+          <th>Stock</th>
+          <th>Live</th>
+          <th>Today</th>
+          <th>Vol(L)</th>
+          <th>Trend</th>
+          <th>Trade</th>
+          <th>SL</th>
+          <th>Target</th>
+          <th>1W</th>
+          <th>1M</th>
+          <th>RSI</th>
+          <th>EMA21</th>
+          <th>EMA9</th>
+          <th>Support</th>
+          <th>Resistance</th>
+          <th>Signal</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -137,7 +150,6 @@ function showNext(){
 }
 
 popup.onclick=()=>{popup.style.display='none';showNext()}
-
 function round05(v){return Math.round(v*20)/20;}
 
 function render(){
@@ -166,18 +178,13 @@ function render(){
   let volL=Math.round(t.volume/100000);
   let chg=((entry-d.at(-2).close)/d.at(-2).close)*100;
 
-  rows.push({s,t,w,m,rsi,e9,e21,sup,res,sig,entry,sl,tgt,volL,chg});
- }
+  let diff=(e9-e21)/e21*100;
+  let trend = diff>0.15 ? `<span class="green">↑</span>` :
+              diff<-0.15 ? `<span class="red">↓</span>` :
+              `<span class="orange">→</span>`;
 
- let sortv=sort.value;
- if(sortv==="volDesc")rows.sort((a,b)=>b.volL-a.volL);
- if(sortv==="volAsc")rows.sort((a,b)=>a.volL-b.volL);
- if(sortv==="rsiDesc")rows.sort((a,b)=>b.rsi-a.rsi);
- if(sortv==="rsiAsc")rows.sort((a,b)=>a.rsi-b.rsi);
- if(sortv==="priceDesc")rows.sort((a,b)=>b.entry-a.entry);
- if(sortv==="priceAsc")rows.sort((a,b)=>a.entry-b.entry);
- if(sortv==="chgDesc")rows.sort((a,b)=>b.chg-a.chg);
- if(sortv==="chgAsc")rows.sort((a,b)=>a.chg-b.chg);
+  rows.push({s,t,w,m,rsi,e9,e21,sup,res,sig,entry,sl,tgt,volL,chg,trend});
+ }
 
  tbody.innerHTML=rows.map(r=>{
   alertSignal(r.s,r.sig);
@@ -186,18 +193,18 @@ function render(){
    <td>${r.entry.toFixed(2)}</td>
    <td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)} (${r.chg.toFixed(2)}%)</td>
    <td>${r.volL}</td>
-   <td class="small">L:${Math.min(...r.w.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.w.map(x=>x.high)).toFixed(1)}</td>
-   <td class="small">L:${Math.min(...r.m.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.m.map(x=>x.high)).toFixed(1)}</td>
-   <td>${r.rsi.toFixed(1)}</td>
-   <td>${r.e9.toFixed(2)}</td>
-   <td>${r.e21.toFixed(2)}</td>
-   <td>${r.sup.toFixed(2)}</td>
-   <td>${r.res.toFixed(2)}</td>
-   <td>${r.e9>r.e21?'Uptrend':'Downtrend'}</td>
-   <td class="${r.sig==='BUY'?'green':r.sig==='SELL'?'red':'orange'}">${r.sig}</td>
+   <td>${r.trend}</td>
    <td><button onclick="openTrade('${r.s}',${round05(r.entry)},${round05(r.sl)},${round05(r.tgt)})">Trade</button></td>
    <td>${round05(r.sl).toFixed(2)}</td>
    <td>${round05(r.tgt).toFixed(2)}</td>
+   <td class="small">L:${Math.min(...r.w.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.w.map(x=>x.high)).toFixed(1)}</td>
+   <td class="small">L:${Math.min(...r.m.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.m.map(x=>x.high)).toFixed(1)}</td>
+   <td>${r.rsi.toFixed(1)}</td>
+   <td>${r.e21.toFixed(2)}</td>
+   <td>${r.e9.toFixed(2)}</td>
+   <td>${r.sup.toFixed(2)}</td>
+   <td>${r.res.toFixed(2)}</td>
+   <td class="${r.sig==='BUY'?'green':r.sig==='SELL'?'red':'orange'}">${r.sig}</td>
   </tr>`;
  }).join("");
 }
@@ -214,8 +221,7 @@ function screenshot(){
 }
 
 function openTrade(s,e,sl,t){
- let url=`trade.html?stock=${s}&entry=${e}&sl=${sl}&target=${t}`;
- window.open(url,'_blank');
+ window.open(`trade.html?stock=${s}&entry=${e}&sl=${sl}&target=${t}`,'_blank');
 }
 
 async function init(){
