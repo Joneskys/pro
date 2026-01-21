@@ -14,26 +14,33 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:linear-gradient(180deg,#020617,#0b1220);color:var(--text);font-family:system-ui}
-header{position:sticky;top:0;z-index:20;background:#020617;border-bottom:1px solid var(--border);padding:10px}
+header{position:sticky;top:0;z-index:20;background:#020617;border-bottom:1px solid var(--border);padding:8px}
 .controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-input,select,button{background:#0f172a;color:#fff;border:1px solid var(--border);padding:7px 10px;border-radius:10px}
+input,select,button{background:#0f172a;color:#fff;border:1px solid var(--border);padding:6px 8px;border-radius:8px}
 button{cursor:pointer}
-.container{padding:10px}
+.container{padding:8px}
 .small{font-size:11px;color:var(--muted)}
 
-.table-wrap{border-radius:14px;border:1px solid var(--border)}
-table{width:100%;border-collapse:collapse;font-size:12px;min-width:1400px}
-th,td{border:1px solid var(--border);padding:6px 8px;text-align:center;white-space:nowrap}
+.table-wrap{border-radius:12px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1100px}
+th,td{border:1px solid var(--border);padding:4px 6px;text-align:center;white-space:nowrap}
 th{position:sticky;top:60px;background:#020617}
 tr:nth-child(even){background:#0f172a}
+
+/* Freeze Stock column */
+th:first-child, td:first-child {
+  position: sticky;
+  left: 0;
+  background:#020617;
+  z-index: 5;
+}
 
 .green{color:var(--green);font-weight:700}
 .red{color:var(--red);font-weight:700}
 .orange{color:var(--orange);font-weight:700}
 .bold{font-weight:800}
 
-.popup{position:fixed;bottom:20px;right:20px;background:#020617;border:1px solid var(--border);border-radius:16px;padding:12px;display:none;z-index:50}
-.tradeBtn{padding:4px 10px;border-radius:999px;background:#111827;border:1px solid var(--border)}
+.popup{position:fixed;bottom:20px;right:20px;background:#020617;border:1px solid var(--border);border-radius:14px;padding:10px;display:none;z-index:50}
 </style>
 </head>
 <body>
@@ -69,25 +76,25 @@ tr:nth-child(even){background:#0f172a}
 
 <div class="container">
   <div class="table-wrap">
-    <table>
+    <table id="table">
       <thead>
         <tr>
-          <th>Stock</th>
-          <th>Live</th>
-          <th>Today</th>
-          <th>Vol(L)</th>
-          <th>Trend</th>
-          <th>Trade</th>
-          <th>SL</th>
-          <th>Target</th>
-          <th>1W</th>
-          <th>1M</th>
-          <th>RSI</th>
-          <th>EMA21</th>
-          <th>EMA9</th>
-          <th>Support</th>
-          <th>Resistance</th>
-          <th>Signal</th>
+          <th draggable="true">Stock</th>
+          <th draggable="true">Live</th>
+          <th draggable="true">Today</th>
+          <th draggable="true">Vol(L)</th>
+          <th draggable="true">Trend</th>
+          <th draggable="true">Trade</th>
+          <th draggable="true">SL</th>
+          <th draggable="true">Target</th>
+          <th draggable="true">1W</th>
+          <th draggable="true">1M</th>
+          <th draggable="true">RSI</th>
+          <th draggable="true">Support</th>
+          <th draggable="true">Resistance</th>
+          <th draggable="true">EMA21</th>
+          <th draggable="true">EMA9</th>
+          <th draggable="true">Signal</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -131,25 +138,6 @@ function addStock(){
  newStock.value="";
 }
 
-function alertSignal(s,sig){
- if(sig==="HOLD"||lastSignals[s]===sig)return;
- lastSignals[s]=sig;
- queue.push({s,sig});
- if(popup.style.display==="none")showNext();
-}
-
-function showNext(){
- if(queue.length===0)return;
- let {s,sig}=queue.shift();
- popupText.innerHTML=`<b class="${sig==='BUY'?'green':'red'}">${s} ${sig}</b>`;
- popup.style.display='block';
- if(!muted){
-  let a=new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-  a.loop=true;a.play();setTimeout(()=>{a.pause();},3000);
- }
-}
-
-popup.onclick=()=>{popup.style.display='none';showNext()}
 function round05(v){return Math.round(v*20)/20;}
 
 function render(){
@@ -186,9 +174,19 @@ function render(){
   rows.push({s,t,w,m,rsi,e9,e21,sup,res,sig,entry,sl,tgt,volL,chg,trend});
  }
 
- tbody.innerHTML=rows.map(r=>{
-  alertSignal(r.s,r.sig);
-  return `<tr>
+ // Sorting fix
+ let sortv=sort.value;
+ if(sortv==="volDesc")rows.sort((a,b)=>b.volL-a.volL);
+ if(sortv==="volAsc")rows.sort((a,b)=>a.volL-b.volL);
+ if(sortv==="rsiDesc")rows.sort((a,b)=>b.rsi-a.rsi);
+ if(sortv==="rsiAsc")rows.sort((a,b)=>a.rsi-b.rsi);
+ if(sortv==="priceDesc")rows.sort((a,b)=>b.entry-a.entry);
+ if(sortv==="priceAsc")rows.sort((a,b)=>a.entry-b.entry);
+ if(sortv==="chgDesc")rows.sort((a,b)=>b.chg-a.chg);
+ if(sortv==="chgAsc")rows.sort((a,b)=>a.chg-b.chg);
+
+ tbody.innerHTML=rows.map(r=>`
+  <tr>
    <td class="bold ${r.sig==='BUY'?'green':r.sig==='SELL'?'red':''}">${r.s}</td>
    <td>${r.entry.toFixed(2)}</td>
    <td class="small">L:${r.t.low.toFixed(1)} H:${r.t.high.toFixed(1)} (${r.chg.toFixed(2)}%)</td>
@@ -200,13 +198,12 @@ function render(){
    <td class="small">L:${Math.min(...r.w.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.w.map(x=>x.high)).toFixed(1)}</td>
    <td class="small">L:${Math.min(...r.m.map(x=>x.low)).toFixed(1)} H:${Math.max(...r.m.map(x=>x.high)).toFixed(1)}</td>
    <td>${r.rsi.toFixed(1)}</td>
-   <td>${r.e21.toFixed(2)}</td>
-   <td>${r.e9.toFixed(2)}</td>
    <td>${r.sup.toFixed(2)}</td>
    <td>${r.res.toFixed(2)}</td>
+   <td>${r.e21.toFixed(2)}</td>
+   <td>${r.e9.toFixed(2)}</td>
    <td class="${r.sig==='BUY'?'green':r.sig==='SELL'?'red':'orange'}">${r.sig}</td>
-  </tr>`;
- }).join("");
+  </tr>`).join("");
 }
 
 function screenshot(){
